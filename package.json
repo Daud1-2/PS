@@ -1,0 +1,92 @@
+{
+  "name": "offline-pos-foundation",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Grocery POS desktop cashier application",
+  "author": "Codex",
+  "main": "main/main.js",
+  "scripts": {
+    "postinstall": "node scripts/rebuildNative.js",
+    "rebuild:native": "node scripts/rebuildNative.js",
+    "start": "node scripts/start.js",
+    "start:backend": "node scripts/startBackend.js",
+    "dev:renderer": "node scripts/devRenderer.js",
+    "dev:electron": "node scripts/devElectron.js",
+    "build:renderer": "node scripts/buildRenderer.js",
+    "build:win": "node scripts/buildInstaller.js",
+    "dist:win": "node scripts/buildInstaller.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.8.0",
+    "cors": "^2.8.6",
+    "electron-pos-printer": "^1.3.8",
+    "esbuild": "^0.27.4",
+    "express": "^5.2.1",
+    "pg": "^8.20.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.3",
+    "@vitejs/plugin-react": "^4.4.1",
+    "concurrently": "^9.1.2",
+    "electron": "^36.0.0",
+    "electron-builder": "^24.13.3",
+    "vite": "^6.3.5",
+    "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.grocery.pos",
+    "productName": "Grocery POS",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "main/**/*",
+      "database/**/*",
+      "services/**/*",
+      "config/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/icons",
+        "to": "assets/icons",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "asar": true,
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
+    "buildDependenciesFromSource": false,
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "icons/grocery-pos.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Grocery POS",
+      "installerIcon": "icons/grocery-pos.ico",
+      "uninstallerIcon": "icons/grocery-pos.ico",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    }
+  }
+}
