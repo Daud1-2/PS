@@ -1,0 +1,6 @@
+.git
+.vercel
+dist
+node_modules
+release
+tmp-*

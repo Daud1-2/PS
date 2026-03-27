@@ -1,8 +1,9 @@
 const path = require('path');
+const fs = require('fs');
 const { loadEnv } = require('../config/loadEnv');
 const express = require('express');
 const cors = require('cors');
-const esbuild = require('esbuild');
+const { buildAdminBundle, outputPath: adminBundlePath } = require('../scripts/buildAdminBundle');
 
 loadEnv();
 
@@ -15,6 +16,7 @@ const { requireApiKey } = require('./middleware/auth');
 
 const app = express();
 const port = Number(process.env.BACKEND_PORT) || 4000;
+let backendReadyPromise = null;
 
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
@@ -77,23 +79,12 @@ function buildAdminHtml() {
 }
 
 async function bundleAdminApp() {
-  const result = await esbuild.build({
-    entryPoints: [
-      path.join(__dirname, '..', 'renderer', 'AdminDashboard', 'main.jsx')
-    ],
-    bundle: true,
-    write: false,
-    format: 'iife',
-    platform: 'browser',
-    target: ['chrome120', 'safari16'],
-    jsx: 'automatic',
-    loader: {
-      '.js': 'jsx',
-      '.jsx': 'jsx'
-    }
-  });
+  if (fs.existsSync(adminBundlePath)) {
+    return fs.promises.readFile(adminBundlePath, 'utf8');
+  }
 
-  return result.outputFiles[0].text;
+  await buildAdminBundle();
+  return fs.promises.readFile(adminBundlePath, 'utf8');
 }
 
 app.get('/favicon.ico', (_req, res) => {
@@ -124,19 +115,39 @@ app.use((error, _req, res, _next) => {
   });
 });
 
-ensureCloudSchema()
-  .then(() => {
-    if (!hasDatabaseConfig()) {
-      console.warn(
-        'Supabase database config is missing. Backend started without database access.'
-      );
-    }
-
-    app.listen(port, () => {
-      console.log(`Backend listening on http://localhost:${port}`);
+function ensureBackendReady() {
+  if (!backendReadyPromise) {
+    backendReadyPromise = ensureCloudSchema().then(() => {
+      if (!hasDatabaseConfig()) {
+        console.warn(
+          'Supabase database config is missing. Backend started without database access.'
+        );
+      }
     });
-  })
-  .catch((error) => {
+  }
+
+  return backendReadyPromise;
+}
+
+async function startServer() {
+  await ensureBackendReady();
+
+  return app.listen(port, () => {
+    console.log(`Backend listening on http://localhost:${port}`);
+  });
+}
+
+if (require.main === module) {
+  startServer().catch((error) => {
     console.error('Failed to start backend:', error);
     process.exit(1);
   });
+}
+
+module.exports = {
+  app,
+  buildAdminHtml,
+  bundleAdminApp,
+  ensureBackendReady,
+  startServer
+};
