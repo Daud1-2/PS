@@ -63,5 +63,29 @@ contextBridge.exposeInMainWorld('posAPI', {
   },
   refreshProducts() {
     return ipcRenderer.invoke('sync:refresh-products');
+  },
+  getUpdateState() {
+    return ipcRenderer.invoke('updates:get-state');
+  },
+  checkForUpdates() {
+    return ipcRenderer.invoke('updates:check');
+  },
+  installUpdate() {
+    return ipcRenderer.invoke('updates:install');
+  },
+  onUpdateStateChanged(callback) {
+    if (typeof callback !== 'function') {
+      return () => {};
+    }
+
+    const listener = (_event, state) => {
+      callback(state);
+    };
+
+    ipcRenderer.on('updates:state-changed', listener);
+
+    return () => {
+      ipcRenderer.removeListener('updates:state-changed', listener);
+    };
   }
 });

@@ -6,6 +6,18 @@ import React, {
   useState
 } from 'react';
 
+function focusWithoutScroll(element) {
+  if (!element) {
+    return;
+  }
+
+  try {
+    element.focus({ preventScroll: true });
+  } catch (_error) {
+    element.focus();
+  }
+}
+
 const ManualSearch = forwardRef(function ManualSearch(
   { onProductSelected, onSearchMiss, onReturnFocus },
   ref
@@ -21,7 +33,7 @@ const ManualSearch = forwardRef(function ManualSearch(
 
   useImperativeHandle(ref, () => ({
     focus() {
-      inputRef.current?.focus();
+      focusWithoutScroll(inputRef.current);
     },
     clear() {
       setQuery('');

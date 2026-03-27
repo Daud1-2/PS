@@ -6,18 +6,37 @@ import React, {
   useState
 } from 'react';
 
+const AUTO_SUBMIT_IDLE_MS = 70;
+const FAST_INPUT_GAP_MS = 45;
+const MIN_AUTO_SUBMIT_LENGTH = 6;
+
+function focusWithoutScroll(element) {
+  if (!element) {
+    return;
+  }
+
+  try {
+    element.focus({ preventScroll: true });
+  } catch (_error) {
+    element.focus();
+  }
+}
+
 const BarcodeInput = forwardRef(function BarcodeInput(
   { onProductScanned, onScanMiss, onQuickAddRequested },
   ref
 ) {
   const inputRef = useRef(null);
+  const autoSubmitTimeoutRef = useRef(null);
+  const lastInputAtRef = useRef(0);
+  const fastBurstCountRef = useRef(0);
   const [barcode, setBarcode] = useState('');
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [missingBarcode, setMissingBarcode] = useState('');
 
   useImperativeHandle(ref, () => ({
     focus() {
-      inputRef.current?.focus();
+      focusWithoutScroll(inputRef.current);
     },
     clearMissState() {
       setMissingBarcode('');
@@ -25,15 +44,32 @@ const BarcodeInput = forwardRef(function BarcodeInput(
   }));
 
   useEffect(() => {
-    inputRef.current?.focus();
+    focusWithoutScroll(inputRef.current);
+
+    return () => {
+      if (autoSubmitTimeoutRef.current) {
+        window.clearTimeout(autoSubmitTimeoutRef.current);
+      }
+    };
   }, []);
 
-  const handleSubmit = async () => {
-    const normalizedBarcode = barcode.trim();
+  const clearAutoSubmitTimeout = () => {
+    if (!autoSubmitTimeoutRef.current) {
+      return;
+    }
+
+    window.clearTimeout(autoSubmitTimeoutRef.current);
+    autoSubmitTimeoutRef.current = null;
+  };
+
+  const handleSubmit = async (value = barcode) => {
+    const normalizedBarcode = String(value || '').trim();
     let shouldRefocusScanner = true;
 
+    clearAutoSubmitTimeout();
+
     if (!normalizedBarcode || isLookingUp) {
-      inputRef.current?.focus();
+      focusWithoutScroll(inputRef.current);
       return;
     }
 
@@ -65,13 +101,48 @@ const BarcodeInput = forwardRef(function BarcodeInput(
     } finally {
       setBarcode('');
       setIsLookingUp(false);
+      fastBurstCountRef.current = 0;
+      lastInputAtRef.current = 0;
 
       if (shouldRefocusScanner) {
         window.requestAnimationFrame(() => {
-          inputRef.current?.focus();
+          focusWithoutScroll(inputRef.current);
         });
       }
     }
+  };
+
+  const handleBarcodeChange = (nextValue) => {
+    const now = window.performance?.now?.() ?? Date.now();
+    const previousInputAt = lastInputAtRef.current;
+    const inputGap = previousInputAt ? now - previousInputAt : 0;
+
+    if (previousInputAt && inputGap <= FAST_INPUT_GAP_MS) {
+      fastBurstCountRef.current += 1;
+    } else {
+      fastBurstCountRef.current = 1;
+    }
+
+    lastInputAtRef.current = now;
+    setBarcode(nextValue);
+    clearAutoSubmitTimeout();
+
+    if (missingBarcode) {
+      setMissingBarcode('');
+    }
+
+    const trimmedValue = String(nextValue || '').trim();
+    const looksLikeScannerInput =
+      trimmedValue.length >= MIN_AUTO_SUBMIT_LENGTH && fastBurstCountRef.current >= 4;
+
+    if (!looksLikeScannerInput || isLookingUp) {
+      return;
+    }
+
+    autoSubmitTimeoutRef.current = window.setTimeout(() => {
+      autoSubmitTimeoutRef.current = null;
+      void handleSubmit(trimmedValue);
+    }, AUTO_SUBMIT_IDLE_MS);
   };
 
   return (
@@ -90,11 +161,7 @@ const BarcodeInput = forwardRef(function BarcodeInput(
             spellCheck="false"
             value={barcode}
             onChange={(event) => {
-              setBarcode(event.target.value);
-
-              if (missingBarcode) {
-                setMissingBarcode('');
-              }
+              handleBarcodeChange(event.target.value);
             }}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
@@ -128,7 +195,7 @@ const BarcodeInput = forwardRef(function BarcodeInput(
             ? 'Looking up product...'
             : 'Scanner-ready input for fast cashier flow'}
         </div>
-        <div style={styles.metaPill}>Press Enter to add</div>
+        <div style={styles.metaPill}>Auto-add on scan</div>
       </div>
 
       {missingBarcode ? (

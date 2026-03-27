@@ -212,10 +212,50 @@ export default function App() {
   const [quickAddBarcode, setQuickAddBarcode] = useState('');
   const [productCompletionTarget, setProductCompletionTarget] = useState(null);
   const [productsRefreshToken, setProductsRefreshToken] = useState(0);
+  const [updateState, setUpdateState] = useState({
+    status: 'idle',
+    currentVersion: '',
+    availableVersion: null,
+    downloadedVersion: null,
+    progressPercent: 0,
+    message: ''
+  });
 
   useEffect(() => {
     cartRef.current = cart;
   }, [cart]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function restoreUpdateState() {
+      try {
+        const nextState = await window.posAPI.getUpdateState();
+
+        if (isMounted && nextState) {
+          setUpdateState(nextState);
+        }
+      } catch (error) {
+        console.error('Failed to restore update state:', error);
+      }
+    }
+
+    void restoreUpdateState();
+
+    const unsubscribe =
+      typeof window.posAPI?.onUpdateStateChanged === 'function'
+        ? window.posAPI.onUpdateStateChanged((nextState) => {
+            if (isMounted && nextState) {
+              setUpdateState(nextState);
+            }
+          })
+        : () => {};
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     if (lastScannedProductId === null) {
@@ -400,7 +440,7 @@ export default function App() {
 
   const focusBarcodeInput = () => {
     window.requestAnimationFrame(() => {
-      barcodeInputRef.current?.focus();
+      barcodeInputRef.current?.focus?.({ preventScroll: true });
     });
   };
 
@@ -1044,6 +1084,28 @@ export default function App() {
     }
   };
 
+  const handleCheckForUpdates = async () => {
+    try {
+      const nextState = await window.posAPI.checkForUpdates();
+
+      if (nextState) {
+        setUpdateState(nextState);
+      }
+    } catch (error) {
+      console.error('Unable to check for updates:', error);
+      window.alert(error?.message || 'Unable to check for updates right now.');
+    }
+  };
+
+  const handleInstallUpdate = async () => {
+    try {
+      await window.posAPI.installUpdate();
+    } catch (error) {
+      console.error('Unable to install update:', error);
+      window.alert(error?.message || 'Unable to install the downloaded update.');
+    }
+  };
+
   useEffect(() => {
     const handleWindowKeyDown = (event) => {
       if (activeView !== 'pos' || quickAddBarcode || productCompletionTarget) {
@@ -1266,12 +1328,57 @@ export default function App() {
     </section>
   );
 
+  const canShowUpdateBanner =
+    updateState.status !== 'disabled' && Boolean(updateState.message);
+  const canInstallUpdate = updateState.status === 'downloaded';
+  const isUpdateBusy =
+    updateState.status === 'checking' ||
+    updateState.status === 'available' ||
+    updateState.status === 'downloading';
+  const updateButtonLabel = canInstallUpdate
+    ? 'Install Update'
+    : isUpdateBusy
+      ? updateState.status === 'downloading'
+        ? `Downloading ${Number(updateState.progressPercent || 0).toFixed(0)}%`
+        : 'Checking...'
+      : 'Check Updates';
+
   return (
     <main style={styles.page}>
       <div style={styles.layout}>
         <Sidebar activeView={activeView} onNavigate={setActiveView} />
 
         <section style={styles.mainPanel}>
+          {canShowUpdateBanner ? (
+            <section
+              style={{
+                ...styles.updateBanner,
+                ...(canInstallUpdate ? styles.updateBannerReady : {}),
+                ...(updateState.status === 'error' ? styles.updateBannerError : {})
+              }}
+            >
+              <div style={styles.updateCopy}>
+                <div style={styles.updateEyebrow}>
+                  Version {updateState.currentVersion || 'Current'}
+                </div>
+                <div style={styles.updateMessage}>{updateState.message}</div>
+              </div>
+
+              <button
+                type="button"
+                onClick={canInstallUpdate ? handleInstallUpdate : handleCheckForUpdates}
+                disabled={isUpdateBusy}
+                style={{
+                  ...styles.updateButton,
+                  ...(canInstallUpdate ? styles.updateButtonReady : {}),
+                  ...(isUpdateBusy ? styles.updateButtonDisabled : {})
+                }}
+              >
+                {updateButtonLabel}
+              </button>
+            </section>
+          ) : null}
+
           {activeView === 'pos' ? (
             posView
           ) : (
@@ -1351,6 +1458,62 @@ const styles = {
     overflow: 'auto',
     padding: '20px',
     boxSizing: 'border-box'
+  },
+  updateBanner: {
+    marginBottom: '16px',
+    padding: '14px 16px',
+    borderRadius: '18px',
+    background: 'linear-gradient(135deg, #eef4ff 0%, #f8fbff 100%)',
+    border: '1px solid rgba(36, 87, 197, 0.14)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '14px',
+    flexWrap: 'wrap'
+  },
+  updateBannerReady: {
+    background: 'linear-gradient(135deg, #ecfdf3 0%, #f7fff9 100%)',
+    border: '1px solid rgba(34, 197, 94, 0.16)'
+  },
+  updateBannerError: {
+    background: 'linear-gradient(135deg, #fff1f2 0%, #fff8f8 100%)',
+    border: '1px solid rgba(244, 63, 94, 0.16)'
+  },
+  updateCopy: {
+    display: 'grid',
+    gap: '6px'
+  },
+  updateEyebrow: {
+    fontSize: '11px',
+    fontWeight: 800,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    color: '#2457c5'
+  },
+  updateMessage: {
+    fontSize: '14px',
+    fontWeight: 700,
+    color: '#17312d'
+  },
+  updateButton: {
+    minHeight: '42px',
+    padding: '0 16px',
+    borderRadius: '14px',
+    border: '1px solid rgba(36, 87, 197, 0.18)',
+    backgroundColor: '#ffffff',
+    color: '#2457c5',
+    fontSize: '13px',
+    fontWeight: 800,
+    cursor: 'pointer'
+  },
+  updateButtonReady: {
+    border: '1px solid rgba(22, 101, 52, 0.12)',
+    backgroundColor: '#166534',
+    color: '#ffffff'
+  },
+  updateButtonDisabled: {
+    opacity: 0.7,
+    cursor: 'not-allowed'
   },
   contentShell: {
     width: '100%',

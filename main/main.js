@@ -5,7 +5,7 @@ const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const { PosPrinter } = require('electron-pos-printer');
 const { getAppConfig, ensureUserConfigFile } = require('../config/appConfig');
 const { initializeDatabase } = require('../database/db');
-const { getLogFilePath, logError, logInfo } = require('./logger');
+const { getLogFilePath, logError, logInfo, logWarn } = require('./logger');
 const {
   startBackupService,
   stopBackupService,
@@ -24,6 +24,12 @@ const {
   stopSyncService,
   runProductSyncNow
 } = require('./syncService');
+const {
+  initializeUpdateService,
+  getUpdateState,
+  checkForUpdates,
+  installDownloadedUpdate
+} = require('./updateService');
 const {
   getProductByBarcode,
   searchProducts,
@@ -384,6 +390,15 @@ function registerIpcHandlers() {
     },
     'sync:refresh-products': async () => {
       return runProductSyncNow();
+    },
+    'updates:get-state': async () => {
+      return getUpdateState();
+    },
+    'updates:check': async () => {
+      return checkForUpdates({ manual: true });
+    },
+    'updates:install': async () => {
+      return installDownloadedUpdate();
     }
   };
 
@@ -417,6 +432,9 @@ async function createMainWindow() {
   });
 
   configureProductionWindow(mainWindow);
+  mainWindow.webContents.once('did-finish-load', () => {
+    mainWindow?.webContents.send('updates:state-changed', getUpdateState());
+  });
 
   if (app.isPackaged) {
     await mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
@@ -446,9 +464,13 @@ app
 
     initializeDatabase(app.getPath('userData'));
     registerIpcHandlers();
+    initializeUpdateService(() => mainWindow);
     startBackupService();
     startSyncService();
     await createMainWindow();
+    void checkForUpdates().catch((error) => {
+      logWarn('Initial update check failed.', error);
+    });
     logInfo('Application startup complete.', {
       logFilePath: getLogFilePath()
     });
