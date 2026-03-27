@@ -40,7 +40,9 @@ export default function ProductManager({
   apiKey,
   products,
   serverTime,
-  onRefreshRequested
+  onRefreshRequested,
+  isCompact = false,
+  isMobile = false
 }) {
   const [createForm, setCreateForm] = useState({
     name: '',
@@ -237,7 +239,12 @@ export default function ProductManager({
 
   return (
     <section style={styles.panel}>
-      <header style={styles.header}>
+      <header
+        style={{
+          ...styles.header,
+          ...(isCompact ? styles.headerStack : {})
+        }}
+      >
         <div>
           <div style={styles.title}>Product manager</div>
           <div style={styles.meta}>
@@ -255,20 +262,27 @@ export default function ProductManager({
         </div>
       </header>
 
-      <form style={styles.createGrid} onSubmit={handleCreate}>
+      <form
+        style={{
+          ...styles.createGrid,
+          ...(isCompact ? styles.createGridCompact : {}),
+          ...(isMobile ? styles.createGridMobile : {})
+        }}
+        onSubmit={handleCreate}
+      >
         <input
           type="text"
           value={createForm.name}
           onChange={(event) => updateCreateField('name', event.target.value)}
           placeholder="Product name"
-          style={styles.input}
+          style={{ ...styles.input, ...(isCompact ? styles.inputCompact : {}) }}
         />
         <input
           type="text"
           value={createForm.barcode}
           onChange={(event) => updateCreateField('barcode', event.target.value)}
           placeholder="Barcode"
-          style={styles.input}
+          style={{ ...styles.input, ...(isCompact ? styles.inputCompact : {}) }}
         />
         <input
           type="number"
@@ -276,7 +290,7 @@ export default function ProductManager({
           value={createForm.costPrice}
           onChange={(event) => updateCreateField('costPrice', event.target.value)}
           placeholder="Cost price"
-          style={styles.input}
+          style={{ ...styles.input, ...(isCompact ? styles.inputCompact : {}) }}
         />
         <input
           type="number"
@@ -286,7 +300,7 @@ export default function ProductManager({
             updateCreateField('sellingPrice', event.target.value)
           }
           placeholder="Selling price"
-          style={styles.input}
+          style={{ ...styles.input, ...(isCompact ? styles.inputCompact : {}) }}
         />
         <input
           type="number"
@@ -294,9 +308,16 @@ export default function ProductManager({
           value={createForm.stock}
           onChange={(event) => updateCreateField('stock', event.target.value)}
           placeholder="Stock"
-          style={styles.input}
+          style={{ ...styles.input, ...(isCompact ? styles.inputCompact : {}) }}
         />
-        <button type="submit" style={styles.primaryButton} disabled={!apiKey || isSaving}>
+        <button
+          type="submit"
+          style={{
+            ...styles.primaryButton,
+            ...(isCompact ? styles.primaryButtonCompact : {})
+          }}
+          disabled={!apiKey || isSaving}
+        >
           {isSaving ? 'Saving...' : 'Add product'}
         </button>
       </form>
@@ -314,59 +335,54 @@ export default function ProductManager({
         </section>
       ) : null}
 
-      <div style={styles.tableWrap}>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.headerCell}>Name</th>
-              <th style={styles.headerCell}>Barcode</th>
-              <th style={styles.headerCell}>Cost</th>
-              <th style={styles.headerCell}>Sell</th>
-              <th style={styles.headerCell}>Stock</th>
-              <th style={styles.headerCell}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleProducts.map((product) => {
-              const draft = drafts[product.id] || createDraft(product);
-              const stockAlertLevel = getStockAlertLevel(draft.stock);
+      {isCompact ? (
+        <div style={styles.mobileCardList}>
+          {visibleProducts.map((product) => {
+            const draft = drafts[product.id] || createDraft(product);
+            const stockAlertLevel = getStockAlertLevel(draft.stock);
 
-              return (
-                <tr
-                  key={product.id}
-                  style={
-                    stockAlertLevel === 'out'
-                      ? styles.outOfStockRow
-                      : stockAlertLevel === 'low'
-                        ? styles.lowStockRow
-                        : undefined
-                  }
-                >
-                  <td style={styles.cell}>
-                    <div style={styles.nameCell}>
-                      <input
-                        type="text"
-                        value={draft.name}
-                        onChange={(event) =>
-                          updateDraft(product.id, 'name', event.target.value)
-                        }
-                        style={styles.tableInput}
-                      />
-                      {stockAlertLevel !== 'normal' ? (
-                        <span
-                          style={{
-                            ...styles.stockTag,
-                            ...(stockAlertLevel === 'out'
-                              ? styles.stockTagOut
-                              : styles.stockTagLow)
-                          }}
-                        >
-                          {getStockAlertLabel(draft.stock)}
-                        </span>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td style={styles.cell}>
+            return (
+              <article
+                key={product.id}
+                style={{
+                  ...styles.mobileCard,
+                  ...(stockAlertLevel === 'out'
+                    ? styles.outOfStockRow
+                    : stockAlertLevel === 'low'
+                      ? styles.lowStockRow
+                      : {})
+                }}
+              >
+                <div style={styles.mobileCardHeader}>
+                  <div style={styles.mobileCardTitle}>Product #{product.id}</div>
+                  {stockAlertLevel !== 'normal' ? (
+                    <span
+                      style={{
+                        ...styles.stockTag,
+                        ...(stockAlertLevel === 'out'
+                          ? styles.stockTagOut
+                          : styles.stockTagLow)
+                      }}
+                    >
+                      {getStockAlertLabel(draft.stock)}
+                    </span>
+                  ) : null}
+                </div>
+
+                <div style={styles.mobileFieldGrid}>
+                  <label style={styles.mobileField}>
+                    <span style={styles.mobileLabel}>Name</span>
+                    <input
+                      type="text"
+                      value={draft.name}
+                      onChange={(event) =>
+                        updateDraft(product.id, 'name', event.target.value)
+                      }
+                      style={styles.tableInput}
+                    />
+                  </label>
+                  <label style={styles.mobileField}>
+                    <span style={styles.mobileLabel}>Barcode</span>
                     <input
                       type="text"
                       value={draft.barcode}
@@ -375,8 +391,9 @@ export default function ProductManager({
                       }
                       style={styles.tableInput}
                     />
-                  </td>
-                  <td style={styles.cell}>
+                  </label>
+                  <label style={styles.mobileField}>
+                    <span style={styles.mobileLabel}>Cost</span>
                     <input
                       type="number"
                       step="0.01"
@@ -386,8 +403,9 @@ export default function ProductManager({
                       }
                       style={styles.tableInput}
                     />
-                  </td>
-                  <td style={styles.cell}>
+                  </label>
+                  <label style={styles.mobileField}>
+                    <span style={styles.mobileLabel}>Sell</span>
                     <input
                       type="number"
                       step="0.01"
@@ -397,58 +415,202 @@ export default function ProductManager({
                       }
                       style={styles.tableInput}
                     />
-                  </td>
-                  <td style={styles.cell}>
-                    <div style={styles.stockEditor}>
+                  </label>
+                  <label style={styles.mobileField}>
+                    <span style={styles.mobileLabel}>Stock</span>
+                    <input
+                      type="number"
+                      step="1"
+                      value={draft.stock}
+                      onChange={(event) =>
+                        updateDraft(product.id, 'stock', event.target.value)
+                      }
+                      style={{
+                        ...styles.tableInput,
+                        ...(stockAlertLevel === 'out'
+                          ? styles.tableInputOut
+                          : stockAlertLevel === 'low'
+                            ? styles.tableInputLow
+                            : {})
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {stockAlertLevel !== 'normal' ? (
+                  <div style={styles.stockHelpText}>Reorder before it runs out.</div>
+                ) : null}
+
+                <div
+                  style={{
+                    ...styles.actionsCell,
+                    ...(isMobile ? styles.actionsCellStack : {})
+                  }}
+                >
+                  <button
+                    type="button"
+                    style={{
+                      ...styles.secondaryButton,
+                      ...(isMobile ? styles.fullWidthButton : {})
+                    }}
+                    onClick={() => handleSave(product.id)}
+                    disabled={!apiKey || isSaving}
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      ...styles.dangerButton,
+                      ...(isMobile ? styles.fullWidthButton : {})
+                    }}
+                    onClick={() => handleDelete(product.id)}
+                    disabled={!apiKey || isSaving}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={styles.tableWrap}>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.headerCell}>Name</th>
+                <th style={styles.headerCell}>Barcode</th>
+                <th style={styles.headerCell}>Cost</th>
+                <th style={styles.headerCell}>Sell</th>
+                <th style={styles.headerCell}>Stock</th>
+                <th style={styles.headerCell}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleProducts.map((product) => {
+                const draft = drafts[product.id] || createDraft(product);
+                const stockAlertLevel = getStockAlertLevel(draft.stock);
+
+                return (
+                  <tr
+                    key={product.id}
+                    style={
+                      stockAlertLevel === 'out'
+                        ? styles.outOfStockRow
+                        : stockAlertLevel === 'low'
+                          ? styles.lowStockRow
+                          : undefined
+                    }
+                  >
+                    <td style={styles.cell}>
+                      <div style={styles.nameCell}>
+                        <input
+                          type="text"
+                          value={draft.name}
+                          onChange={(event) =>
+                            updateDraft(product.id, 'name', event.target.value)
+                          }
+                          style={styles.tableInput}
+                        />
+                        {stockAlertLevel !== 'normal' ? (
+                          <span
+                            style={{
+                              ...styles.stockTag,
+                              ...(stockAlertLevel === 'out'
+                                ? styles.stockTagOut
+                                : styles.stockTagLow)
+                            }}
+                          >
+                            {getStockAlertLabel(draft.stock)}
+                          </span>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td style={styles.cell}>
+                      <input
+                        type="text"
+                        value={draft.barcode}
+                        onChange={(event) =>
+                          updateDraft(product.id, 'barcode', event.target.value)
+                        }
+                        style={styles.tableInput}
+                      />
+                    </td>
+                    <td style={styles.cell}>
                       <input
                         type="number"
-                        step="1"
-                        value={draft.stock}
+                        step="0.01"
+                        value={draft.costPrice}
                         onChange={(event) =>
-                          updateDraft(product.id, 'stock', event.target.value)
+                          updateDraft(product.id, 'costPrice', event.target.value)
                         }
-                        style={{
-                          ...styles.tableInput,
-                          ...(stockAlertLevel === 'out'
-                            ? styles.tableInputOut
-                            : stockAlertLevel === 'low'
-                              ? styles.tableInputLow
-                              : {})
-                        }}
+                        style={styles.tableInput}
                       />
-                      {stockAlertLevel !== 'normal' ? (
-                        <span style={styles.stockHelpText}>
-                          Reorder before it runs out.
-                        </span>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td style={styles.cell}>
-                    <div style={styles.actionsCell}>
-                      <button
-                        type="button"
-                        style={styles.secondaryButton}
-                        onClick={() => handleSave(product.id)}
-                        disabled={!apiKey || isSaving}
-                      >
-                        Save
-                      </button>
-                      <button
-                        type="button"
-                        style={styles.dangerButton}
-                        onClick={() => handleDelete(product.id)}
-                        disabled={!apiKey || isSaving}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                    </td>
+                    <td style={styles.cell}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={draft.sellingPrice}
+                        onChange={(event) =>
+                          updateDraft(product.id, 'sellingPrice', event.target.value)
+                        }
+                        style={styles.tableInput}
+                      />
+                    </td>
+                    <td style={styles.cell}>
+                      <div style={styles.stockEditor}>
+                        <input
+                          type="number"
+                          step="1"
+                          value={draft.stock}
+                          onChange={(event) =>
+                            updateDraft(product.id, 'stock', event.target.value)
+                          }
+                          style={{
+                            ...styles.tableInput,
+                            ...(stockAlertLevel === 'out'
+                              ? styles.tableInputOut
+                              : stockAlertLevel === 'low'
+                                ? styles.tableInputLow
+                                : {})
+                          }}
+                        />
+                        {stockAlertLevel !== 'normal' ? (
+                          <span style={styles.stockHelpText}>
+                            Reorder before it runs out.
+                          </span>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td style={styles.cell}>
+                      <div style={styles.actionsCell}>
+                        <button
+                          type="button"
+                          style={styles.secondaryButton}
+                          onClick={() => handleSave(product.id)}
+                          disabled={!apiKey || isSaving}
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          style={styles.dangerButton}
+                          onClick={() => handleDelete(product.id)}
+                          disabled={!apiKey || isSaving}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }
@@ -466,6 +628,10 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: '16px'
+  },
+  headerStack: {
+    flexDirection: 'column',
+    alignItems: 'stretch'
   },
   title: {
     fontSize: '16px',
@@ -500,6 +666,12 @@ const styles = {
     gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
     gap: '12px',
     marginTop: '18px'
+  },
+  createGridCompact: {
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))'
+  },
+  createGridMobile: {
+    gridTemplateColumns: '1fr'
   },
   lowStockBanner: {
     marginTop: '18px',
@@ -537,6 +709,10 @@ const styles = {
     color: '#111827',
     boxSizing: 'border-box'
   },
+  inputCompact: {
+    width: '100%',
+    minWidth: 0
+  },
   primaryButton: {
     minHeight: '44px',
     border: 'none',
@@ -546,6 +722,9 @@ const styles = {
     fontSize: '14px',
     fontWeight: 700,
     cursor: 'pointer'
+  },
+  primaryButtonCompact: {
+    width: '100%'
   },
   secondaryButton: {
     minHeight: '40px',
@@ -606,6 +785,13 @@ const styles = {
     alignItems: 'center',
     gap: '8px'
   },
+  actionsCellStack: {
+    flexDirection: 'column',
+    alignItems: 'stretch'
+  },
+  fullWidthButton: {
+    width: '100%'
+  },
   tableInput: {
     width: '100%',
     minHeight: '40px',
@@ -628,6 +814,47 @@ const styles = {
   stockEditor: {
     display: 'grid',
     gap: '6px'
+  },
+  mobileCardList: {
+    marginTop: '18px',
+    display: 'grid',
+    gap: '14px'
+  },
+  mobileCard: {
+    padding: '16px',
+    borderRadius: '16px',
+    border: '1px solid rgba(16, 24, 40, 0.08)',
+    backgroundColor: '#f8fafc',
+    display: 'grid',
+    gap: '14px'
+  },
+  mobileCardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '10px',
+    flexWrap: 'wrap'
+  },
+  mobileCardTitle: {
+    fontSize: '15px',
+    fontWeight: 800,
+    color: '#111827'
+  },
+  mobileFieldGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    gap: '12px'
+  },
+  mobileField: {
+    display: 'grid',
+    gap: '6px'
+  },
+  mobileLabel: {
+    fontSize: '11px',
+    fontWeight: 800,
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase',
+    color: '#667085'
   },
   stockTag: {
     display: 'inline-flex',

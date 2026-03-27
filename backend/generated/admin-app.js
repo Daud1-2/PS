@@ -21719,11 +21719,11 @@
   });
 
   // renderer/AdminDashboard/main.jsx
-  var import_react4 = __toESM(require_react());
+  var import_react5 = __toESM(require_react());
   var import_client = __toESM(require_client());
 
   // renderer/AdminDashboard/App.jsx
-  var import_react3 = __toESM(require_react());
+  var import_react4 = __toESM(require_react());
 
   // renderer/AdminDashboard/ProductManager.jsx
   var import_react = __toESM(require_react());
@@ -21784,7 +21784,9 @@
     apiKey,
     products,
     serverTime,
-    onRefreshRequested
+    onRefreshRequested,
+    isCompact = false,
+    isMobile = false
   }) {
     const [createForm, setCreateForm] = (0, import_react.useState)({
       name: "",
@@ -21950,82 +21952,113 @@
       }
     }
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { style: styles.panel, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { style: styles.header, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: styles.title, children: "Product manager" }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: styles.meta, children: [
-            "Server snapshot: ",
-            formatDateTime(serverTime)
-          ] })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "div",
-          {
-            style: {
-              ...styles.statusBadge,
-              ...statusTone === "success" ? styles.statusSuccess : {},
-              ...statusTone === "error" ? styles.statusError : {}
-            },
-            children: statusMessage
-          }
-        )
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("form", { style: styles.createGrid, onSubmit: handleCreate, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "input",
-          {
-            type: "text",
-            value: createForm.name,
-            onChange: (event) => updateCreateField("name", event.target.value),
-            placeholder: "Product name",
-            style: styles.input
-          }
-        ),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "input",
-          {
-            type: "text",
-            value: createForm.barcode,
-            onChange: (event) => updateCreateField("barcode", event.target.value),
-            placeholder: "Barcode",
-            style: styles.input
-          }
-        ),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "input",
-          {
-            type: "number",
-            step: "0.01",
-            value: createForm.costPrice,
-            onChange: (event) => updateCreateField("costPrice", event.target.value),
-            placeholder: "Cost price",
-            style: styles.input
-          }
-        ),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "input",
-          {
-            type: "number",
-            step: "0.01",
-            value: createForm.sellingPrice,
-            onChange: (event) => updateCreateField("sellingPrice", event.target.value),
-            placeholder: "Selling price",
-            style: styles.input
-          }
-        ),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "input",
-          {
-            type: "number",
-            step: "1",
-            value: createForm.stock,
-            onChange: (event) => updateCreateField("stock", event.target.value),
-            placeholder: "Stock",
-            style: styles.input
-          }
-        ),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "submit", style: styles.primaryButton, disabled: !apiKey || isSaving, children: isSaving ? "Saving..." : "Add product" })
-      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        "header",
+        {
+          style: {
+            ...styles.header,
+            ...isCompact ? styles.headerStack : {}
+          },
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: styles.title, children: "Product manager" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: styles.meta, children: [
+                "Server snapshot: ",
+                formatDateTime(serverTime)
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "div",
+              {
+                style: {
+                  ...styles.statusBadge,
+                  ...statusTone === "success" ? styles.statusSuccess : {},
+                  ...statusTone === "error" ? styles.statusError : {}
+                },
+                children: statusMessage
+              }
+            )
+          ]
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        "form",
+        {
+          style: {
+            ...styles.createGrid,
+            ...isCompact ? styles.createGridCompact : {},
+            ...isMobile ? styles.createGridMobile : {}
+          },
+          onSubmit: handleCreate,
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "input",
+              {
+                type: "text",
+                value: createForm.name,
+                onChange: (event) => updateCreateField("name", event.target.value),
+                placeholder: "Product name",
+                style: { ...styles.input, ...isCompact ? styles.inputCompact : {} }
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "input",
+              {
+                type: "text",
+                value: createForm.barcode,
+                onChange: (event) => updateCreateField("barcode", event.target.value),
+                placeholder: "Barcode",
+                style: { ...styles.input, ...isCompact ? styles.inputCompact : {} }
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "input",
+              {
+                type: "number",
+                step: "0.01",
+                value: createForm.costPrice,
+                onChange: (event) => updateCreateField("costPrice", event.target.value),
+                placeholder: "Cost price",
+                style: { ...styles.input, ...isCompact ? styles.inputCompact : {} }
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "input",
+              {
+                type: "number",
+                step: "0.01",
+                value: createForm.sellingPrice,
+                onChange: (event) => updateCreateField("sellingPrice", event.target.value),
+                placeholder: "Selling price",
+                style: { ...styles.input, ...isCompact ? styles.inputCompact : {} }
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "input",
+              {
+                type: "number",
+                step: "1",
+                value: createForm.stock,
+                onChange: (event) => updateCreateField("stock", event.target.value),
+                placeholder: "Stock",
+                style: { ...styles.input, ...isCompact ? styles.inputCompact : {} }
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "button",
+              {
+                type: "submit",
+                style: {
+                  ...styles.primaryButton,
+                  ...isCompact ? styles.primaryButtonCompact : {}
+                },
+                disabled: !apiKey || isSaving,
+                children: isSaving ? "Saving..." : "Add product"
+              }
+            )
+          ]
+        }
+      ),
       lowStockCount > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { style: styles.lowStockBanner, children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: styles.lowStockBannerLabel, children: "Inventory alert" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: styles.lowStockBannerTitle, children: [
@@ -22038,7 +22071,144 @@
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: styles.lowStockBannerText, children: "Rows marked below are very low or already out of stock." })
       ] }) : null,
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: styles.tableWrap, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("table", { style: styles.table, children: [
+      isCompact ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: styles.mobileCardList, children: visibleProducts.map((product) => {
+        const draft = drafts[product.id] || createDraft(product);
+        const stockAlertLevel = getStockAlertLevel(draft.stock);
+        return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+          "article",
+          {
+            style: {
+              ...styles.mobileCard,
+              ...stockAlertLevel === "out" ? styles.outOfStockRow : stockAlertLevel === "low" ? styles.lowStockRow : {}
+            },
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: styles.mobileCardHeader, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: styles.mobileCardTitle, children: [
+                  "Product #",
+                  product.id
+                ] }),
+                stockAlertLevel !== "normal" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                  "span",
+                  {
+                    style: {
+                      ...styles.stockTag,
+                      ...stockAlertLevel === "out" ? styles.stockTagOut : styles.stockTagLow
+                    },
+                    children: getStockAlertLabel(draft.stock)
+                  }
+                ) : null
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: styles.mobileFieldGrid, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: styles.mobileField, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: styles.mobileLabel, children: "Name" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    "input",
+                    {
+                      type: "text",
+                      value: draft.name,
+                      onChange: (event) => updateDraft(product.id, "name", event.target.value),
+                      style: styles.tableInput
+                    }
+                  )
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: styles.mobileField, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: styles.mobileLabel, children: "Barcode" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    "input",
+                    {
+                      type: "text",
+                      value: draft.barcode,
+                      onChange: (event) => updateDraft(product.id, "barcode", event.target.value),
+                      style: styles.tableInput
+                    }
+                  )
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: styles.mobileField, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: styles.mobileLabel, children: "Cost" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    "input",
+                    {
+                      type: "number",
+                      step: "0.01",
+                      value: draft.costPrice,
+                      onChange: (event) => updateDraft(product.id, "costPrice", event.target.value),
+                      style: styles.tableInput
+                    }
+                  )
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: styles.mobileField, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: styles.mobileLabel, children: "Sell" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    "input",
+                    {
+                      type: "number",
+                      step: "0.01",
+                      value: draft.sellingPrice,
+                      onChange: (event) => updateDraft(product.id, "sellingPrice", event.target.value),
+                      style: styles.tableInput
+                    }
+                  )
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: styles.mobileField, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: styles.mobileLabel, children: "Stock" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    "input",
+                    {
+                      type: "number",
+                      step: "1",
+                      value: draft.stock,
+                      onChange: (event) => updateDraft(product.id, "stock", event.target.value),
+                      style: {
+                        ...styles.tableInput,
+                        ...stockAlertLevel === "out" ? styles.tableInputOut : stockAlertLevel === "low" ? styles.tableInputLow : {}
+                      }
+                    }
+                  )
+                ] })
+              ] }),
+              stockAlertLevel !== "normal" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: styles.stockHelpText, children: "Reorder before it runs out." }) : null,
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                "div",
+                {
+                  style: {
+                    ...styles.actionsCell,
+                    ...isMobile ? styles.actionsCellStack : {}
+                  },
+                  children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                      "button",
+                      {
+                        type: "button",
+                        style: {
+                          ...styles.secondaryButton,
+                          ...isMobile ? styles.fullWidthButton : {}
+                        },
+                        onClick: () => handleSave(product.id),
+                        disabled: !apiKey || isSaving,
+                        children: "Save"
+                      }
+                    ),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                      "button",
+                      {
+                        type: "button",
+                        style: {
+                          ...styles.dangerButton,
+                          ...isMobile ? styles.fullWidthButton : {}
+                        },
+                        onClick: () => handleDelete(product.id),
+                        disabled: !apiKey || isSaving,
+                        children: "Delete"
+                      }
+                    )
+                  ]
+                }
+              )
+            ]
+          },
+          product.id
+        );
+      }) }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: styles.tableWrap, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("table", { style: styles.table, children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("thead", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { style: styles.headerCell, children: "Name" }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { style: styles.headerCell, children: "Barcode" }),
@@ -22165,6 +22335,10 @@
       alignItems: "center",
       gap: "16px"
     },
+    headerStack: {
+      flexDirection: "column",
+      alignItems: "stretch"
+    },
     title: {
       fontSize: "16px",
       fontWeight: 800,
@@ -22198,6 +22372,12 @@
       gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
       gap: "12px",
       marginTop: "18px"
+    },
+    createGridCompact: {
+      gridTemplateColumns: "repeat(2, minmax(0, 1fr))"
+    },
+    createGridMobile: {
+      gridTemplateColumns: "1fr"
     },
     lowStockBanner: {
       marginTop: "18px",
@@ -22235,6 +22415,10 @@
       color: "#111827",
       boxSizing: "border-box"
     },
+    inputCompact: {
+      width: "100%",
+      minWidth: 0
+    },
     primaryButton: {
       minHeight: "44px",
       border: "none",
@@ -22244,6 +22428,9 @@
       fontSize: "14px",
       fontWeight: 700,
       cursor: "pointer"
+    },
+    primaryButtonCompact: {
+      width: "100%"
     },
     secondaryButton: {
       minHeight: "40px",
@@ -22304,6 +22491,13 @@
       alignItems: "center",
       gap: "8px"
     },
+    actionsCellStack: {
+      flexDirection: "column",
+      alignItems: "stretch"
+    },
+    fullWidthButton: {
+      width: "100%"
+    },
     tableInput: {
       width: "100%",
       minHeight: "40px",
@@ -22326,6 +22520,47 @@
     stockEditor: {
       display: "grid",
       gap: "6px"
+    },
+    mobileCardList: {
+      marginTop: "18px",
+      display: "grid",
+      gap: "14px"
+    },
+    mobileCard: {
+      padding: "16px",
+      borderRadius: "16px",
+      border: "1px solid rgba(16, 24, 40, 0.08)",
+      backgroundColor: "#f8fafc",
+      display: "grid",
+      gap: "14px"
+    },
+    mobileCardHeader: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: "10px",
+      flexWrap: "wrap"
+    },
+    mobileCardTitle: {
+      fontSize: "15px",
+      fontWeight: 800,
+      color: "#111827"
+    },
+    mobileFieldGrid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+      gap: "12px"
+    },
+    mobileField: {
+      display: "grid",
+      gap: "6px"
+    },
+    mobileLabel: {
+      fontSize: "11px",
+      fontWeight: 800,
+      letterSpacing: "0.06em",
+      textTransform: "uppercase",
+      color: "#667085"
     },
     stockTag: {
       display: "inline-flex",
@@ -22379,7 +22614,7 @@
     }
     return Number(shift.difference || 0) === 0 ? "Balanced" : "Mismatch";
   }
-  function Shifts({ shifts, lastSyncTime, isLoading }) {
+  function Shifts({ shifts, lastSyncTime, isLoading, isCompact = false }) {
     const [selectedShiftId, setSelectedShiftId] = (0, import_react2.useState)(null);
     const selectedShift = (0, import_react2.useMemo)(() => {
       if (!selectedShiftId) {
@@ -22400,7 +22635,82 @@
         ] })
       ] }),
       isLoading ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: styles2.emptyState, children: "Loading shifts..." }) : shifts.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: styles2.emptyState, children: "No shifts have been synced yet." }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: styles2.tableWrap, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("table", { style: styles2.table, children: [
+        isCompact ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: styles2.mobileCardList, children: shifts.map((shift) => {
+          const auditStatus = getAuditStatus(shift);
+          const isMismatch = shift.status === "closed" && Number(shift.difference || 0) !== 0;
+          const isSelected = selectedShiftId === shift.id;
+          return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+            "article",
+            {
+              onClick: () => setSelectedShiftId(
+                (current) => current === shift.id ? null : shift.id
+              ),
+              style: {
+                ...styles2.mobileCard,
+                ...isMismatch ? styles2.mismatchRow : {},
+                ...isSelected ? styles2.selectedCard : {},
+                cursor: "pointer"
+              },
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: styles2.mobileCardHeader, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: styles2.mobileCardTitle, children: [
+                      "Shift #",
+                      shift.id
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: styles2.mobileCardMeta, children: [
+                      formatDate(shift.start_time),
+                      " \u2022 ",
+                      formatTime(shift.start_time)
+                    ] })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                    "span",
+                    {
+                      style: {
+                        ...styles2.statusBadge,
+                        ...auditStatus === "Balanced" ? styles2.statusBalanced : auditStatus === "Mismatch" ? styles2.statusMismatch : styles2.statusOpen
+                      },
+                      children: auditStatus
+                    }
+                  )
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: styles2.mobileMetrics, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: styles2.mobileMetric, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: styles2.mobileMetricLabel, children: "End" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("strong", { style: styles2.mobileMetricValue, children: formatTime(shift.end_time) })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: styles2.mobileMetric, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: styles2.mobileMetricLabel, children: "Sales" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("strong", { style: styles2.mobileMetricValue, children: formatCurrency(shift.total_sales) })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: styles2.mobileMetric, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: styles2.mobileMetricLabel, children: "Expected" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("strong", { style: styles2.mobileMetricValue, children: formatCurrency(shift.expected_cash) })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: styles2.mobileMetric, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: styles2.mobileMetricLabel, children: "Actual" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("strong", { style: styles2.mobileMetricValue, children: shift.closing_cash === null ? "Open" : formatCurrency(shift.closing_cash) })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: styles2.mobileMetric, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: styles2.mobileMetricLabel, children: "Difference" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                      "strong",
+                      {
+                        style: {
+                          ...styles2.mobileMetricValue,
+                          ...isMismatch ? styles2.mismatchText : styles2.balancedText
+                        },
+                        children: formatCurrency(shift.difference)
+                      }
+                    )
+                  ] })
+                ] })
+              ]
+            },
+            shift.id
+          );
+        }) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: styles2.tableWrap, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("table", { style: styles2.table, children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("thead", { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("tr", { children: [
             /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("th", { style: styles2.headerCell, children: "Date" }),
             /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("th", { style: styles2.headerCell, children: "Start Time" }),
@@ -22559,6 +22869,9 @@
     selectedRow: {
       boxShadow: "inset 3px 0 0 #2457c5"
     },
+    selectedCard: {
+      boxShadow: "inset 3px 0 0 #2457c5, 0 8px 18px rgba(16, 24, 40, 0.08)"
+    },
     mismatchText: {
       color: "#b42318",
       fontWeight: 800
@@ -22616,6 +22929,57 @@
       gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
       gap: "12px"
     },
+    mobileCardList: {
+      marginTop: "18px",
+      display: "grid",
+      gap: "14px"
+    },
+    mobileCard: {
+      padding: "16px",
+      borderRadius: "16px",
+      backgroundColor: "#f8fafc",
+      border: "1px solid rgba(16, 24, 40, 0.08)",
+      display: "grid",
+      gap: "14px"
+    },
+    mobileCardHeader: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      gap: "12px",
+      flexWrap: "wrap"
+    },
+    mobileCardTitle: {
+      fontSize: "16px",
+      fontWeight: 800,
+      color: "#111827"
+    },
+    mobileCardMeta: {
+      marginTop: "4px",
+      fontSize: "13px",
+      color: "#667085"
+    },
+    mobileMetrics: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+      gap: "12px"
+    },
+    mobileMetric: {
+      display: "grid",
+      gap: "4px"
+    },
+    mobileMetricLabel: {
+      fontSize: "11px",
+      fontWeight: 800,
+      letterSpacing: "0.06em",
+      textTransform: "uppercase",
+      color: "#667085"
+    },
+    mobileMetricValue: {
+      fontSize: "15px",
+      fontWeight: 800,
+      color: "#111827"
+    },
     detailItem: {
       display: "grid",
       gap: "8px",
@@ -22645,6 +23009,32 @@
       fontSize: "14px"
     }
   };
+
+  // renderer/AdminDashboard/useResponsive.js
+  var import_react3 = __toESM(require_react());
+  function getViewportWidth() {
+    if (typeof window === "undefined") {
+      return 1280;
+    }
+    return window.innerWidth || 1280;
+  }
+  function useResponsive() {
+    const [viewportWidth, setViewportWidth] = (0, import_react3.useState)(getViewportWidth);
+    (0, import_react3.useEffect)(() => {
+      function handleResize() {
+        setViewportWidth(getViewportWidth());
+      }
+      window.addEventListener("resize", handleResize);
+      return () => {
+        window.removeEventListener("resize", handleResize);
+      };
+    }, []);
+    return {
+      viewportWidth,
+      isTablet: viewportWidth <= 1024,
+      isMobile: viewportWidth <= 720
+    };
+  }
 
   // renderer/AdminDashboard/App.jsx
   var import_jsx_runtime3 = __toESM(require_jsx_runtime());
@@ -22701,19 +23091,20 @@
     }
     return new Date(value).toLocaleString();
   }
-  function SummaryCard({ label, value, tone = "neutral" }) {
+  function SummaryCard({ label, value, tone = "neutral", compact = false }) {
     return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
       "article",
       {
         style: {
           ...styles3.card,
+          ...compact ? styles3.cardCompact : {},
           ...tone === "primary" ? styles3.cardPrimary : {},
           ...tone === "accent" ? styles3.cardAccent : {},
           ...tone === "warning" ? styles3.cardWarning : {}
         },
         children: [
           /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.cardLabel, children: label }),
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.cardValue, children: value })
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: { ...styles3.cardValue, ...compact ? styles3.cardValueCompact : {} }, children: value })
         ]
       }
     );
@@ -22729,14 +23120,15 @@
     { id: "shifts", label: "Shifts" }
   ];
   function App() {
-    const [activeSection, setActiveSection] = (0, import_react3.useState)("overview");
-    const [apiKey, setApiKey] = (0, import_react3.useState)(() => {
+    const { isTablet, isMobile } = useResponsive();
+    const [activeSection, setActiveSection] = (0, import_react4.useState)("overview");
+    const [apiKey, setApiKey] = (0, import_react4.useState)(() => {
       return window.localStorage.getItem(API_KEY_STORAGE_KEY) || "";
     });
-    const [draftApiKey, setDraftApiKey] = (0, import_react3.useState)(() => {
+    const [draftApiKey, setDraftApiKey] = (0, import_react4.useState)(() => {
       return window.localStorage.getItem(API_KEY_STORAGE_KEY) || "";
     });
-    const [salesData, setSalesData] = (0, import_react3.useState)({
+    const [salesData, setSalesData] = (0, import_react4.useState)({
       summary: {
         salesCount: 0,
         totalAmount: 0,
@@ -22747,25 +23139,25 @@
       topProducts: [],
       lastSyncTime: null
     });
-    const [inventoryData, setInventoryData] = (0, import_react3.useState)({
+    const [inventoryData, setInventoryData] = (0, import_react4.useState)({
       inventory: [],
       lastSyncTime: null
     });
-    const [productsData, setProductsData] = (0, import_react3.useState)({
+    const [productsData, setProductsData] = (0, import_react4.useState)({
       products: [],
       serverTime: null
     });
-    const [shiftsData, setShiftsData] = (0, import_react3.useState)({
+    const [shiftsData, setShiftsData] = (0, import_react4.useState)({
       shifts: [],
       lastSyncTime: null
     });
-    const [lastRefreshTime, setLastRefreshTime] = (0, import_react3.useState)(null);
-    const [statusMessage, setStatusMessage] = (0, import_react3.useState)(
+    const [lastRefreshTime, setLastRefreshTime] = (0, import_react4.useState)(null);
+    const [statusMessage, setStatusMessage] = (0, import_react4.useState)(
       apiKey ? "Connecting to admin API..." : "Enter your admin API key to load data"
     );
-    const [hasError, setHasError] = (0, import_react3.useState)(false);
-    const [isLoading, setIsLoading] = (0, import_react3.useState)(false);
-    const inventorySummary = (0, import_react3.useMemo)(() => {
+    const [hasError, setHasError] = (0, import_react4.useState)(false);
+    const [isLoading, setIsLoading] = (0, import_react4.useState)(false);
+    const inventorySummary = (0, import_react4.useMemo)(() => {
       const inventoryRows = inventoryData.inventory || [];
       return inventoryRows.reduce(
         (summary, item) => {
@@ -22779,7 +23171,7 @@
         { totalProducts: 0, totalUnits: 0, lowStockProducts: 0 }
       );
     }, [inventoryData]);
-    const shiftSummary = (0, import_react3.useMemo)(() => {
+    const shiftSummary = (0, import_react4.useMemo)(() => {
       const shifts = shiftsData.shifts || [];
       return shifts.reduce(
         (summary, shift) => {
@@ -22875,7 +23267,7 @@
         setIsLoading(false);
       }
     }
-    (0, import_react3.useEffect)(() => {
+    (0, import_react4.useEffect)(() => {
       if (!apiKey) {
         return void 0;
       }
@@ -22937,79 +23329,124 @@
       setStatusMessage("Enter your admin API key to load data");
       setHasError(false);
     }
-    return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("main", { style: styles3.page, children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { style: styles3.shell, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("header", { style: styles3.header, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.badge, children: "Admin Dashboard" }),
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("h1", { style: styles3.title, children: "Sales, inventory, and shift audit" }),
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { style: styles3.subtitle, children: "Live-ish reporting from synced POS sales, stock levels, and cashier shifts with clear mismatch visibility." })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
-          "aside",
-          {
-            style: {
-              ...styles3.statusPanel,
-              ...hasError ? styles3.statusPanelError : {}
-            },
-            children: [
-              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.statusLabel, children: "Status" }),
-              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.statusValue, children: statusMessage }),
-              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.statusMeta, children: [
-                "Last refresh: ",
-                formatDateTime2(lastRefreshTime)
-              ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.statusMeta, children: [
-                "Last sales sync: ",
-                formatDateTime2(salesData.lastSyncTime)
-              ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.statusMeta, children: [
-                "Last shift sync: ",
-                formatDateTime2(shiftsData.lastSyncTime)
-              ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.statusMeta, children: [
-                "Refresh interval: ",
-                Math.round(refreshIntervalMs / 1e3),
-                " seconds"
-              ] })
-            ]
-          }
-        )
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { style: styles3.authPanel, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.panelTitle, children: "Admin access" }),
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.authMeta, children: "Use the same API key configured on the backend. The key stays in this browser only." })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("form", { style: styles3.authForm, onSubmit: handleApiKeySave, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
-            "input",
-            {
-              type: "password",
-              value: draftApiKey,
-              onChange: (event) => setDraftApiKey(event.target.value),
-              placeholder: "Enter admin API key",
-              style: styles3.authInput,
-              autoComplete: "off"
-            }
-          ),
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "submit", style: styles3.authButton, children: "Connect" }),
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
-            "button",
-            {
-              type: "button",
-              style: styles3.authButtonSecondary,
-              onClick: handleApiKeyReset,
-              children: "Clear"
-            }
-          )
-        ] })
-      ] }),
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("main", { style: { ...styles3.page, ...isMobile ? styles3.pageMobile : {} }, children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { style: styles3.shell, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+        "header",
+        {
+          style: {
+            ...styles3.header,
+            ...isTablet ? styles3.headerStack : {}
+          },
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.badge, children: "Admin Dashboard" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("h1", { style: { ...styles3.title, ...isMobile ? styles3.titleMobile : {} }, children: "Sales, inventory, and shift audit" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { style: { ...styles3.subtitle, ...isMobile ? styles3.subtitleMobile : {} }, children: "Live-ish reporting from synced POS sales, stock levels, and cashier shifts with clear mismatch visibility." })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+              "aside",
+              {
+                style: {
+                  ...styles3.statusPanel,
+                  ...hasError ? styles3.statusPanelError : {}
+                },
+                children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.statusLabel, children: "Status" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.statusValue, children: statusMessage }),
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.statusMeta, children: [
+                    "Last refresh: ",
+                    formatDateTime2(lastRefreshTime)
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.statusMeta, children: [
+                    "Last sales sync: ",
+                    formatDateTime2(salesData.lastSyncTime)
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.statusMeta, children: [
+                    "Last shift sync: ",
+                    formatDateTime2(shiftsData.lastSyncTime)
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.statusMeta, children: [
+                    "Refresh interval: ",
+                    Math.round(refreshIntervalMs / 1e3),
+                    " seconds"
+                  ] })
+                ]
+              }
+            )
+          ]
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+        "section",
+        {
+          style: {
+            ...styles3.authPanel,
+            ...isTablet ? styles3.authPanelStack : {}
+          },
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.panelTitle, children: "Admin access" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.authMeta, children: "Use the same API key configured on the backend. The key stays in this browser only." })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+              "form",
+              {
+                style: {
+                  ...styles3.authForm,
+                  ...isTablet ? styles3.authFormStack : {}
+                },
+                onSubmit: handleApiKeySave,
+                children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+                    "input",
+                    {
+                      type: "password",
+                      value: draftApiKey,
+                      onChange: (event) => setDraftApiKey(event.target.value),
+                      placeholder: "Enter admin API key",
+                      style: {
+                        ...styles3.authInput,
+                        ...isTablet ? styles3.authInputResponsive : {}
+                      },
+                      autoComplete: "off"
+                    }
+                  ),
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+                    "button",
+                    {
+                      type: "submit",
+                      style: {
+                        ...styles3.authButton,
+                        ...isMobile ? styles3.buttonFullWidth : {}
+                      },
+                      children: "Connect"
+                    }
+                  ),
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+                    "button",
+                    {
+                      type: "button",
+                      style: {
+                        ...styles3.authButtonSecondary,
+                        ...isMobile ? styles3.buttonFullWidth : {}
+                      },
+                      onClick: handleApiKeyReset,
+                      children: "Clear"
+                    }
+                  )
+                ]
+              }
+            )
+          ]
+        }
+      ),
       /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { style: styles3.summaryGrid, children: [
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
           SummaryCard,
           {
             label: "Total sales",
-            value: salesData.summary.salesCount || 0
+            value: salesData.summary.salesCount || 0,
+            compact: isMobile
           }
         ),
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
@@ -23017,7 +23454,8 @@
           {
             label: "Revenue",
             value: formatCurrency2(salesData.summary.totalAmount),
-            tone: "primary"
+            tone: "primary",
+            compact: isMobile
           }
         ),
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
@@ -23025,7 +23463,8 @@
           {
             label: "Profit",
             value: formatCurrency2(salesData.summary.profit),
-            tone: "accent"
+            tone: "accent",
+            compact: isMobile
           }
         ),
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
@@ -23033,14 +23472,16 @@
           {
             label: "Low stock items",
             value: inventorySummary.lowStockProducts,
-            tone: inventorySummary.lowStockProducts > 0 ? "warning" : "neutral"
+            tone: inventorySummary.lowStockProducts > 0 ? "warning" : "neutral",
+            compact: isMobile
           }
         ),
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
           SummaryCard,
           {
             label: "Open shifts",
-            value: shiftSummary.open
+            value: shiftSummary.open,
+            compact: isMobile
           }
         ),
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
@@ -23048,7 +23489,8 @@
           {
             label: "Cash mismatches",
             value: shiftSummary.mismatch,
-            tone: shiftSummary.mismatch > 0 ? "warning" : "neutral"
+            tone: shiftSummary.mismatch > 0 ? "warning" : "neutral",
+            compact: isMobile
           }
         )
       ] }),
@@ -23066,134 +23508,191 @@
         section.id
       )) }),
       activeSection === "overview" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { style: styles3.mainGrid, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { style: styles3.panel, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.panelTitle, children: "Daily sales" }),
-            salesData.daily.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
-              EmptyState,
-              {
-                title: apiKey ? "No synced sales yet" : "Dashboard locked",
-                message: apiKey ? "Sales will appear here after the POS sync service uploads pending checkouts." : "Enter a valid admin API key to view daily totals."
-              }
-            ) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.tableWrap, children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("table", { style: styles3.table, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("thead", { children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("tr", { children: [
-                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("th", { style: styles3.headerCell, children: "Date" }),
-                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("th", { style: styles3.headerCell, children: "Sales" }),
-                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("th", { style: styles3.headerCell, children: "Revenue" }),
-                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("th", { style: styles3.headerCell, children: "Cost" }),
-                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("th", { style: styles3.headerCell, children: "Profit" })
-              ] }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("tbody", { children: salesData.daily.map((row) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("tr", { children: [
-                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("td", { style: styles3.cell, children: row.date }),
-                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("td", { style: styles3.cell, children: row.salesCount }),
-                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("td", { style: styles3.cell, children: formatCurrency2(row.totalAmount) }),
-                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("td", { style: styles3.cell, children: formatCurrency2(row.totalCost) }),
-                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("td", { style: styles3.cell, children: formatCurrency2(row.profit) })
-              ] }, row.date)) })
-            ] }) })
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { style: styles3.sideColumn, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { style: styles3.panel, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.panelTitle, children: "Top products" }),
-              salesData.topProducts.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
-                EmptyState,
-                {
-                  title: "No top sellers yet",
-                  message: "Top-selling products will appear once synced sales are available."
-                }
-              ) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.listWrap, children: salesData.topProducts.map((product) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.listRow, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.listTitle, children: product.productName }),
-                  /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.listMeta, children: [
-                    product.quantitySold,
-                    " sold"
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+          "section",
+          {
+            style: {
+              ...styles3.mainGrid,
+              ...isTablet ? styles3.mainGridStack : {}
+            },
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { style: styles3.panel, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.panelTitle, children: "Daily sales" }),
+                salesData.daily.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+                  EmptyState,
+                  {
+                    title: apiKey ? "No synced sales yet" : "Dashboard locked",
+                    message: apiKey ? "Sales will appear here after the POS sync service uploads pending checkouts." : "Enter a valid admin API key to view daily totals."
+                  }
+                ) : isMobile ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.salesCardList, children: salesData.daily.map((row) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("article", { style: styles3.salesCard, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.salesCardHeader, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.salesCardDate, children: row.date }),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.salesCardBadge, children: [
+                      row.salesCount,
+                      " sales"
+                    ] })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.salesCardGrid, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.salesCardMetric, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { style: styles3.salesCardLabel, children: "Revenue" }),
+                      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("strong", { style: styles3.salesCardValue, children: formatCurrency2(row.totalAmount) })
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.salesCardMetric, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { style: styles3.salesCardLabel, children: "Cost" }),
+                      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("strong", { style: styles3.salesCardValue, children: formatCurrency2(row.totalCost) })
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.salesCardMetric, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { style: styles3.salesCardLabel, children: "Profit" }),
+                      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("strong", { style: styles3.salesCardValue, children: formatCurrency2(row.profit) })
+                    ] })
                   ] })
-                ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.listAmount, children: formatCurrency2(product.revenue) })
-              ] }, product.productId)) })
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { style: styles3.panel, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.panelTitle, children: "Inventory snapshot" }),
-              inventoryData.inventory.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
-                EmptyState,
-                {
-                  title: "No synced inventory yet",
-                  message: "Inventory levels will populate after at least one successful sync."
-                }
-              ) : /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.listWrap, children: [
-                inventorySummary.lowStockProducts > 0 ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.inventoryAlert, children: [
-                  inventorySummary.lowStockProducts,
-                  " item",
-                  inventorySummary.lowStockProducts === 1 ? "" : "s",
-                  " need restocking soon."
-                ] }) : null,
-                inventoryData.inventory.slice(0, 8).map((item) => {
-                  const stockAlertLevel = getStockAlertLevel(item.stock);
-                  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+                ] }, row.date)) }) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.tableWrap, children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("table", { style: styles3.table, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("thead", { children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("tr", { children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("th", { style: styles3.headerCell, children: "Date" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("th", { style: styles3.headerCell, children: "Sales" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("th", { style: styles3.headerCell, children: "Revenue" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("th", { style: styles3.headerCell, children: "Cost" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("th", { style: styles3.headerCell, children: "Profit" })
+                  ] }) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("tbody", { children: salesData.daily.map((row) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("tr", { children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("td", { style: styles3.cell, children: row.date }),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("td", { style: styles3.cell, children: row.salesCount }),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("td", { style: styles3.cell, children: formatCurrency2(row.totalAmount) }),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("td", { style: styles3.cell, children: formatCurrency2(row.totalCost) }),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("td", { style: styles3.cell, children: formatCurrency2(row.profit) })
+                  ] }, row.date)) })
+                ] }) })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { style: styles3.sideColumn, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { style: styles3.panel, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.panelTitle, children: "Top products" }),
+                  salesData.topProducts.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+                    EmptyState,
+                    {
+                      title: "No top sellers yet",
+                      message: "Top-selling products will appear once synced sales are available."
+                    }
+                  ) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.listWrap, children: salesData.topProducts.map((product) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
                     "div",
                     {
                       style: {
                         ...styles3.listRow,
-                        ...stockAlertLevel === "out" ? styles3.listRowOut : stockAlertLevel === "low" ? styles3.listRowLow : {}
+                        ...isMobile ? styles3.listRowStack : {}
                       },
                       children: [
                         /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
-                          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.listTitle, children: item.name }),
-                          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.listMeta, children: item.barcode || "No barcode" })
+                          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.listTitle, children: product.productName }),
+                          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.listMeta, children: [
+                            product.quantitySold,
+                            " sold"
+                          ] })
                         ] }),
-                        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
-                          "div",
-                          {
-                            style: {
-                              ...styles3.stockPill,
-                              ...stockAlertLevel === "out" ? styles3.stockPillOut : stockAlertLevel === "low" ? styles3.stockPillLow : {}
-                            },
-                            children: item.stock
-                          }
-                        )
+                        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.listAmount, children: formatCurrency2(product.revenue) })
                       ]
                     },
-                    `${item.storeId}-${item.productId}`
-                  );
-                })
+                    product.productId
+                  )) })
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { style: styles3.panel, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.panelTitle, children: "Inventory snapshot" }),
+                  inventoryData.inventory.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+                    EmptyState,
+                    {
+                      title: "No synced inventory yet",
+                      message: "Inventory levels will populate after at least one successful sync."
+                    }
+                  ) : /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.listWrap, children: [
+                    inventorySummary.lowStockProducts > 0 ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.inventoryAlert, children: [
+                      inventorySummary.lowStockProducts,
+                      " item",
+                      inventorySummary.lowStockProducts === 1 ? "" : "s",
+                      " need restocking soon."
+                    ] }) : null,
+                    inventoryData.inventory.slice(0, 8).map((item) => {
+                      const stockAlertLevel = getStockAlertLevel(item.stock);
+                      return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+                        "div",
+                        {
+                          style: {
+                            ...styles3.listRow,
+                            ...isMobile ? styles3.listRowStack : {},
+                            ...stockAlertLevel === "out" ? styles3.listRowOut : stockAlertLevel === "low" ? styles3.listRowLow : {}
+                          },
+                          children: [
+                            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
+                              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.listTitle, children: item.name }),
+                              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.listMeta, children: item.barcode || "No barcode" })
+                            ] }),
+                            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+                              "div",
+                              {
+                                style: {
+                                  ...styles3.stockPill,
+                                  ...stockAlertLevel === "out" ? styles3.stockPillOut : stockAlertLevel === "low" ? styles3.stockPillLow : {}
+                                },
+                                children: item.stock
+                              }
+                            )
+                          ]
+                        },
+                        `${item.storeId}-${item.productId}`
+                      );
+                    })
+                  ] })
+                ] })
               ] })
-            ] })
-          ] })
-        ] }),
+            ]
+          }
+        ),
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
           ProductManager,
           {
             apiKey,
             products: productsData.products || [],
             serverTime: productsData.serverTime,
-            onRefreshRequested: () => loadDashboard(apiKey)
+            onRefreshRequested: () => loadDashboard(apiKey),
+            isCompact: isTablet,
+            isMobile
           }
         ),
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { style: styles3.footerPanel, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.footerTitle, children: "Catalog" }),
-            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.footerMeta, children: [
-              productsData.products.length,
-              " product records synced for admin management"
-            ] })
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
-            "button",
-            {
-              type: "button",
-              style: styles3.refreshButton,
-              onClick: () => loadDashboard(apiKey),
-              disabled: !apiKey || isLoading,
-              children: isLoading ? "Refreshing..." : "Refresh now"
-            }
-          )
-        ] })
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+          "section",
+          {
+            style: {
+              ...styles3.footerPanel,
+              ...isTablet ? styles3.footerPanelStack : {}
+            },
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.footerTitle, children: "Catalog" }),
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.footerMeta, children: [
+                  productsData.products.length,
+                  " product records synced for admin management"
+                ] })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+                "button",
+                {
+                  type: "button",
+                  style: {
+                    ...styles3.refreshButton,
+                    ...isMobile ? styles3.buttonFullWidth : {}
+                  },
+                  onClick: () => loadDashboard(apiKey),
+                  disabled: !apiKey || isLoading,
+                  children: isLoading ? "Refreshing..." : "Refresh now"
+                }
+              )
+            ]
+          }
+        )
       ] }) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
         Shifts,
         {
           shifts: shiftsData.shifts || [],
           lastSyncTime: shiftsData.lastSyncTime,
-          isLoading
+          isLoading,
+          isCompact: isTablet
         }
       )
     ] }) });
@@ -23208,6 +23707,9 @@
       color: "#111827",
       boxSizing: "border-box"
     },
+    pageMobile: {
+      padding: "10px"
+    },
     shell: {
       maxWidth: "1360px",
       margin: "0 auto",
@@ -23219,6 +23721,9 @@
       gridTemplateColumns: "minmax(0, 1fr) 340px",
       gap: "18px",
       alignItems: "stretch"
+    },
+    headerStack: {
+      gridTemplateColumns: "1fr"
     },
     badge: {
       display: "inline-flex",
@@ -23236,12 +23741,19 @@
       fontSize: "34px",
       lineHeight: 1.08
     },
+    titleMobile: {
+      fontSize: "28px",
+      lineHeight: 1.14
+    },
     subtitle: {
       margin: 0,
       maxWidth: "720px",
       fontSize: "15px",
       lineHeight: 1.55,
       color: "#475467"
+    },
+    subtitleMobile: {
+      fontSize: "14px"
     },
     statusPanel: {
       padding: "18px 20px",
@@ -23282,6 +23794,10 @@
       border: "1px solid rgba(16, 24, 40, 0.08)",
       boxShadow: "0 8px 20px rgba(16, 24, 40, 0.05)"
     },
+    authPanelStack: {
+      flexDirection: "column",
+      alignItems: "stretch"
+    },
     panelTitle: {
       fontSize: "15px",
       fontWeight: 800,
@@ -23301,6 +23817,11 @@
       gap: "12px",
       minWidth: "320px"
     },
+    authFormStack: {
+      minWidth: 0,
+      width: "100%",
+      justifyContent: "stretch"
+    },
     authInput: {
       minWidth: "280px",
       padding: "12px 14px",
@@ -23311,6 +23832,10 @@
       color: "#111827",
       outline: "none"
     },
+    authInputResponsive: {
+      minWidth: 0,
+      width: "100%"
+    },
     authButton: {
       padding: "12px 16px",
       border: "none",
@@ -23320,6 +23845,10 @@
       fontSize: "14px",
       fontWeight: 700,
       cursor: "pointer"
+    },
+    buttonFullWidth: {
+      width: "100%",
+      justifyContent: "center"
     },
     authButtonSecondary: {
       padding: "12px 16px",
@@ -23342,6 +23871,9 @@
       backgroundColor: "#ffffff",
       border: "1px solid rgba(16, 24, 40, 0.08)",
       boxShadow: "0 8px 20px rgba(16, 24, 40, 0.05)"
+    },
+    cardCompact: {
+      padding: "16px"
     },
     cardPrimary: {
       backgroundColor: "#1f2937",
@@ -23372,6 +23904,9 @@
       fontWeight: 800,
       lineHeight: 1.05
     },
+    cardValueCompact: {
+      fontSize: "24px"
+    },
     sectionTabs: {
       display: "flex",
       gap: "10px",
@@ -23400,6 +23935,9 @@
       gap: "18px",
       alignItems: "start"
     },
+    mainGridStack: {
+      gridTemplateColumns: "1fr"
+    },
     sideColumn: {
       display: "grid",
       gap: "18px"
@@ -23414,6 +23952,65 @@
     tableWrap: {
       marginTop: "14px",
       overflowX: "auto"
+    },
+    salesCardList: {
+      marginTop: "14px",
+      display: "grid",
+      gap: "12px"
+    },
+    salesCard: {
+      padding: "14px",
+      borderRadius: "16px",
+      backgroundColor: "#f8fafc",
+      border: "1px solid rgba(16, 24, 40, 0.06)",
+      display: "grid",
+      gap: "12px"
+    },
+    salesCardHeader: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: "12px",
+      flexWrap: "wrap"
+    },
+    salesCardDate: {
+      fontSize: "15px",
+      fontWeight: 800,
+      color: "#111827"
+    },
+    salesCardBadge: {
+      display: "inline-flex",
+      minHeight: "30px",
+      padding: "0 10px",
+      alignItems: "center",
+      borderRadius: "999px",
+      backgroundColor: "#e8eef8",
+      color: "#2457c5",
+      fontSize: "11px",
+      fontWeight: 800,
+      letterSpacing: "0.06em",
+      textTransform: "uppercase"
+    },
+    salesCardGrid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+      gap: "10px"
+    },
+    salesCardMetric: {
+      display: "grid",
+      gap: "4px"
+    },
+    salesCardLabel: {
+      fontSize: "11px",
+      fontWeight: 800,
+      letterSpacing: "0.06em",
+      textTransform: "uppercase",
+      color: "#667085"
+    },
+    salesCardValue: {
+      fontSize: "15px",
+      fontWeight: 800,
+      color: "#111827"
     },
     table: {
       width: "100%",
@@ -23457,6 +24054,10 @@
       padding: "12px 14px",
       borderRadius: "14px",
       backgroundColor: "#f8fafc"
+    },
+    listRowStack: {
+      alignItems: "flex-start",
+      flexDirection: "column"
     },
     listRowLow: {
       backgroundColor: "#fff7ed"
@@ -23506,6 +24107,10 @@
       border: "1px solid rgba(16, 24, 40, 0.08)",
       boxShadow: "0 8px 20px rgba(16, 24, 40, 0.05)"
     },
+    footerPanelStack: {
+      flexDirection: "column",
+      alignItems: "stretch"
+    },
     footerTitle: {
       fontSize: "14px",
       fontWeight: 800,
@@ -23551,7 +24156,7 @@
   // renderer/AdminDashboard/main.jsx
   var import_jsx_runtime4 = __toESM(require_jsx_runtime());
   import_client.default.createRoot(document.getElementById("root")).render(
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(import_react4.default.StrictMode, { children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(App, {}) })
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(import_react5.default.StrictMode, { children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(App, {}) })
   );
 })();
 /*! Bundled license information:

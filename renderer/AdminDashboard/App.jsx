@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import ProductManager from './ProductManager.jsx';
 import Shifts from './Shifts.jsx';
+import useResponsive from './useResponsive.js';
 import { getStockAlertLevel, hasVeryLowStock } from '../shared/stockAlerts.js';
 
 const adminConfig = window.__ADMIN_CONFIG__ || {};
@@ -70,18 +71,21 @@ function formatDateTime(value) {
   return new Date(value).toLocaleString();
 }
 
-function SummaryCard({ label, value, tone = 'neutral' }) {
+function SummaryCard({ label, value, tone = 'neutral', compact = false }) {
   return (
     <article
       style={{
         ...styles.card,
+        ...(compact ? styles.cardCompact : {}),
         ...(tone === 'primary' ? styles.cardPrimary : {}),
         ...(tone === 'accent' ? styles.cardAccent : {}),
         ...(tone === 'warning' ? styles.cardWarning : {})
       }}
     >
       <div style={styles.cardLabel}>{label}</div>
-      <div style={styles.cardValue}>{value}</div>
+      <div style={{ ...styles.cardValue, ...(compact ? styles.cardValueCompact : {}) }}>
+        {value}
+      </div>
     </article>
   );
 }
@@ -101,6 +105,7 @@ const adminSections = [
 ];
 
 export default function App() {
+  const { isTablet, isMobile } = useResponsive();
   const [activeSection, setActiveSection] = useState('overview');
   const [apiKey, setApiKey] = useState(() => {
     return window.localStorage.getItem(API_KEY_STORAGE_KEY) || '';
@@ -341,13 +346,20 @@ export default function App() {
   }
 
   return (
-    <main style={styles.page}>
+    <main style={{ ...styles.page, ...(isMobile ? styles.pageMobile : {}) }}>
       <section style={styles.shell}>
-        <header style={styles.header}>
+        <header
+          style={{
+            ...styles.header,
+            ...(isTablet ? styles.headerStack : {})
+          }}
+        >
           <div>
             <div style={styles.badge}>Admin Dashboard</div>
-            <h1 style={styles.title}>Sales, inventory, and shift audit</h1>
-            <p style={styles.subtitle}>
+            <h1 style={{ ...styles.title, ...(isMobile ? styles.titleMobile : {}) }}>
+              Sales, inventory, and shift audit
+            </h1>
+            <p style={{ ...styles.subtitle, ...(isMobile ? styles.subtitleMobile : {}) }}>
               Live-ish reporting from synced POS sales, stock levels, and cashier
               shifts with clear mismatch visibility.
             </p>
@@ -376,7 +388,12 @@ export default function App() {
           </aside>
         </header>
 
-        <section style={styles.authPanel}>
+        <section
+          style={{
+            ...styles.authPanel,
+            ...(isTablet ? styles.authPanelStack : {})
+          }}
+        >
           <div>
             <div style={styles.panelTitle}>Admin access</div>
             <div style={styles.authMeta}>
@@ -385,21 +402,39 @@ export default function App() {
             </div>
           </div>
 
-          <form style={styles.authForm} onSubmit={handleApiKeySave}>
+          <form
+            style={{
+              ...styles.authForm,
+              ...(isTablet ? styles.authFormStack : {})
+            }}
+            onSubmit={handleApiKeySave}
+          >
             <input
               type="password"
               value={draftApiKey}
               onChange={(event) => setDraftApiKey(event.target.value)}
               placeholder="Enter admin API key"
-              style={styles.authInput}
+              style={{
+                ...styles.authInput,
+                ...(isTablet ? styles.authInputResponsive : {})
+              }}
               autoComplete="off"
             />
-            <button type="submit" style={styles.authButton}>
+            <button
+              type="submit"
+              style={{
+                ...styles.authButton,
+                ...(isMobile ? styles.buttonFullWidth : {})
+              }}
+            >
               Connect
             </button>
             <button
               type="button"
-              style={styles.authButtonSecondary}
+              style={{
+                ...styles.authButtonSecondary,
+                ...(isMobile ? styles.buttonFullWidth : {})
+              }}
               onClick={handleApiKeyReset}
             >
               Clear
@@ -408,34 +443,40 @@ export default function App() {
         </section>
 
         <section style={styles.summaryGrid}>
-          <SummaryCard
-            label="Total sales"
-            value={salesData.summary.salesCount || 0}
-          />
-          <SummaryCard
-            label="Revenue"
-            value={formatCurrency(salesData.summary.totalAmount)}
-            tone="primary"
-          />
-          <SummaryCard
-            label="Profit"
-            value={formatCurrency(salesData.summary.profit)}
-            tone="accent"
-          />
-          <SummaryCard
-            label="Low stock items"
-            value={inventorySummary.lowStockProducts}
-            tone={inventorySummary.lowStockProducts > 0 ? 'warning' : 'neutral'}
-          />
-          <SummaryCard
-            label="Open shifts"
-            value={shiftSummary.open}
-          />
-          <SummaryCard
-            label="Cash mismatches"
-            value={shiftSummary.mismatch}
-            tone={shiftSummary.mismatch > 0 ? 'warning' : 'neutral'}
-          />
+            <SummaryCard
+              label="Total sales"
+              value={salesData.summary.salesCount || 0}
+              compact={isMobile}
+            />
+            <SummaryCard
+              label="Revenue"
+              value={formatCurrency(salesData.summary.totalAmount)}
+              tone="primary"
+              compact={isMobile}
+            />
+            <SummaryCard
+              label="Profit"
+              value={formatCurrency(salesData.summary.profit)}
+              tone="accent"
+              compact={isMobile}
+            />
+            <SummaryCard
+              label="Low stock items"
+              value={inventorySummary.lowStockProducts}
+              tone={inventorySummary.lowStockProducts > 0 ? 'warning' : 'neutral'}
+              compact={isMobile}
+            />
+            <SummaryCard
+              label="Open shifts"
+              value={shiftSummary.open}
+              compact={isMobile}
+            />
+            <SummaryCard
+              label="Cash mismatches"
+              value={shiftSummary.mismatch}
+              tone={shiftSummary.mismatch > 0 ? 'warning' : 'neutral'}
+              compact={isMobile}
+            />
         </section>
 
         <section style={styles.sectionTabs}>
@@ -456,7 +497,12 @@ export default function App() {
 
         {activeSection === 'overview' ? (
           <>
-            <section style={styles.mainGrid}>
+            <section
+              style={{
+                ...styles.mainGrid,
+                ...(isTablet ? styles.mainGridStack : {})
+              }}
+            >
               <section style={styles.panel}>
                 <div style={styles.panelTitle}>Daily sales</div>
                 {salesData.daily.length === 0 ? (
@@ -468,6 +514,37 @@ export default function App() {
                         : 'Enter a valid admin API key to view daily totals.'
                     }
                   />
+                ) : isMobile ? (
+                  <div style={styles.salesCardList}>
+                    {salesData.daily.map((row) => (
+                      <article key={row.date} style={styles.salesCard}>
+                        <div style={styles.salesCardHeader}>
+                          <div style={styles.salesCardDate}>{row.date}</div>
+                          <div style={styles.salesCardBadge}>{row.salesCount} sales</div>
+                        </div>
+                        <div style={styles.salesCardGrid}>
+                          <div style={styles.salesCardMetric}>
+                            <span style={styles.salesCardLabel}>Revenue</span>
+                            <strong style={styles.salesCardValue}>
+                              {formatCurrency(row.totalAmount)}
+                            </strong>
+                          </div>
+                          <div style={styles.salesCardMetric}>
+                            <span style={styles.salesCardLabel}>Cost</span>
+                            <strong style={styles.salesCardValue}>
+                              {formatCurrency(row.totalCost)}
+                            </strong>
+                          </div>
+                          <div style={styles.salesCardMetric}>
+                            <span style={styles.salesCardLabel}>Profit</span>
+                            <strong style={styles.salesCardValue}>
+                              {formatCurrency(row.profit)}
+                            </strong>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
                 ) : (
                   <div style={styles.tableWrap}>
                     <table style={styles.table}>
@@ -509,7 +586,13 @@ export default function App() {
                   ) : (
                     <div style={styles.listWrap}>
                       {salesData.topProducts.map((product) => (
-                        <div key={product.productId} style={styles.listRow}>
+                        <div
+                          key={product.productId}
+                          style={{
+                            ...styles.listRow,
+                            ...(isMobile ? styles.listRowStack : {})
+                          }}
+                        >
                           <div>
                             <div style={styles.listTitle}>{product.productName}</div>
                             <div style={styles.listMeta}>
@@ -549,6 +632,7 @@ export default function App() {
                             key={`${item.storeId}-${item.productId}`}
                             style={{
                               ...styles.listRow,
+                              ...(isMobile ? styles.listRowStack : {}),
                               ...(stockAlertLevel === 'out'
                                 ? styles.listRowOut
                                 : stockAlertLevel === 'low'
@@ -588,9 +672,16 @@ export default function App() {
               products={productsData.products || []}
               serverTime={productsData.serverTime}
               onRefreshRequested={() => loadDashboard(apiKey)}
+              isCompact={isTablet}
+              isMobile={isMobile}
             />
 
-            <section style={styles.footerPanel}>
+            <section
+              style={{
+                ...styles.footerPanel,
+                ...(isTablet ? styles.footerPanelStack : {})
+              }}
+            >
               <div>
                 <div style={styles.footerTitle}>Catalog</div>
                 <div style={styles.footerMeta}>
@@ -600,7 +691,10 @@ export default function App() {
               </div>
               <button
                 type="button"
-                style={styles.refreshButton}
+                style={{
+                  ...styles.refreshButton,
+                  ...(isMobile ? styles.buttonFullWidth : {})
+                }}
                 onClick={() => loadDashboard(apiKey)}
                 disabled={!apiKey || isLoading}
               >
@@ -613,6 +707,7 @@ export default function App() {
             shifts={shiftsData.shifts || []}
             lastSyncTime={shiftsData.lastSyncTime}
             isLoading={isLoading}
+            isCompact={isTablet}
           />
         )}
       </section>
@@ -631,6 +726,9 @@ const styles = {
     color: '#111827',
     boxSizing: 'border-box'
   },
+  pageMobile: {
+    padding: '10px'
+  },
   shell: {
     maxWidth: '1360px',
     margin: '0 auto',
@@ -642,6 +740,9 @@ const styles = {
     gridTemplateColumns: 'minmax(0, 1fr) 340px',
     gap: '18px',
     alignItems: 'stretch'
+  },
+  headerStack: {
+    gridTemplateColumns: '1fr'
   },
   badge: {
     display: 'inline-flex',
@@ -659,12 +760,19 @@ const styles = {
     fontSize: '34px',
     lineHeight: 1.08
   },
+  titleMobile: {
+    fontSize: '28px',
+    lineHeight: 1.14
+  },
   subtitle: {
     margin: 0,
     maxWidth: '720px',
     fontSize: '15px',
     lineHeight: 1.55,
     color: '#475467'
+  },
+  subtitleMobile: {
+    fontSize: '14px'
   },
   statusPanel: {
     padding: '18px 20px',
@@ -705,6 +813,10 @@ const styles = {
     border: '1px solid rgba(16, 24, 40, 0.08)',
     boxShadow: '0 8px 20px rgba(16, 24, 40, 0.05)'
   },
+  authPanelStack: {
+    flexDirection: 'column',
+    alignItems: 'stretch'
+  },
   panelTitle: {
     fontSize: '15px',
     fontWeight: 800,
@@ -724,6 +836,11 @@ const styles = {
     gap: '12px',
     minWidth: '320px'
   },
+  authFormStack: {
+    minWidth: 0,
+    width: '100%',
+    justifyContent: 'stretch'
+  },
   authInput: {
     minWidth: '280px',
     padding: '12px 14px',
@@ -734,6 +851,10 @@ const styles = {
     color: '#111827',
     outline: 'none'
   },
+  authInputResponsive: {
+    minWidth: 0,
+    width: '100%'
+  },
   authButton: {
     padding: '12px 16px',
     border: 'none',
@@ -743,6 +864,10 @@ const styles = {
     fontSize: '14px',
     fontWeight: 700,
     cursor: 'pointer'
+  },
+  buttonFullWidth: {
+    width: '100%',
+    justifyContent: 'center'
   },
   authButtonSecondary: {
     padding: '12px 16px',
@@ -765,6 +890,9 @@ const styles = {
     backgroundColor: '#ffffff',
     border: '1px solid rgba(16, 24, 40, 0.08)',
     boxShadow: '0 8px 20px rgba(16, 24, 40, 0.05)'
+  },
+  cardCompact: {
+    padding: '16px'
   },
   cardPrimary: {
     backgroundColor: '#1f2937',
@@ -795,6 +923,9 @@ const styles = {
     fontWeight: 800,
     lineHeight: 1.05
   },
+  cardValueCompact: {
+    fontSize: '24px'
+  },
   sectionTabs: {
     display: 'flex',
     gap: '10px',
@@ -823,6 +954,9 @@ const styles = {
     gap: '18px',
     alignItems: 'start'
   },
+  mainGridStack: {
+    gridTemplateColumns: '1fr'
+  },
   sideColumn: {
     display: 'grid',
     gap: '18px'
@@ -837,6 +971,65 @@ const styles = {
   tableWrap: {
     marginTop: '14px',
     overflowX: 'auto'
+  },
+  salesCardList: {
+    marginTop: '14px',
+    display: 'grid',
+    gap: '12px'
+  },
+  salesCard: {
+    padding: '14px',
+    borderRadius: '16px',
+    backgroundColor: '#f8fafc',
+    border: '1px solid rgba(16, 24, 40, 0.06)',
+    display: 'grid',
+    gap: '12px'
+  },
+  salesCardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '12px',
+    flexWrap: 'wrap'
+  },
+  salesCardDate: {
+    fontSize: '15px',
+    fontWeight: 800,
+    color: '#111827'
+  },
+  salesCardBadge: {
+    display: 'inline-flex',
+    minHeight: '30px',
+    padding: '0 10px',
+    alignItems: 'center',
+    borderRadius: '999px',
+    backgroundColor: '#e8eef8',
+    color: '#2457c5',
+    fontSize: '11px',
+    fontWeight: 800,
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase'
+  },
+  salesCardGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+    gap: '10px'
+  },
+  salesCardMetric: {
+    display: 'grid',
+    gap: '4px'
+  },
+  salesCardLabel: {
+    fontSize: '11px',
+    fontWeight: 800,
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase',
+    color: '#667085'
+  },
+  salesCardValue: {
+    fontSize: '15px',
+    fontWeight: 800,
+    color: '#111827'
   },
   table: {
     width: '100%',
@@ -880,6 +1073,10 @@ const styles = {
     padding: '12px 14px',
     borderRadius: '14px',
     backgroundColor: '#f8fafc'
+  },
+  listRowStack: {
+    alignItems: 'flex-start',
+    flexDirection: 'column'
   },
   listRowLow: {
     backgroundColor: '#fff7ed'
@@ -928,6 +1125,10 @@ const styles = {
     backgroundColor: '#ffffff',
     border: '1px solid rgba(16, 24, 40, 0.08)',
     boxShadow: '0 8px 20px rgba(16, 24, 40, 0.05)'
+  },
+  footerPanelStack: {
+    flexDirection: 'column',
+    alignItems: 'stretch'
   },
   footerTitle: {
     fontSize: '14px',

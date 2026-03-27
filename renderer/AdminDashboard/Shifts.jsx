@@ -31,7 +31,7 @@ function getAuditStatus(shift) {
   return Number(shift.difference || 0) === 0 ? 'Balanced' : 'Mismatch';
 }
 
-export default function Shifts({ shifts, lastSyncTime, isLoading }) {
+export default function Shifts({ shifts, lastSyncTime, isLoading, isCompact = false }) {
   const [selectedShiftId, setSelectedShiftId] = useState(null);
 
   const selectedShift = useMemo(() => {
@@ -63,79 +63,168 @@ export default function Shifts({ shifts, lastSyncTime, isLoading }) {
         <div style={styles.emptyState}>No shifts have been synced yet.</div>
       ) : (
         <>
-          <div style={styles.tableWrap}>
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={styles.headerCell}>Date</th>
-                  <th style={styles.headerCell}>Start Time</th>
-                  <th style={styles.headerCell}>End Time</th>
-                  <th style={styles.headerCell}>Total Sales</th>
-                  <th style={styles.headerCell}>Expected Cash</th>
-                  <th style={styles.headerCell}>Actual Cash</th>
-                  <th style={styles.headerCell}>Difference</th>
-                  <th style={styles.headerCell}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shifts.map((shift) => {
-                  const auditStatus = getAuditStatus(shift);
-                  const isMismatch =
-                    shift.status === 'closed' && Number(shift.difference || 0) !== 0;
-                  const isSelected = selectedShiftId === shift.id;
+          {isCompact ? (
+            <div style={styles.mobileCardList}>
+              {shifts.map((shift) => {
+                const auditStatus = getAuditStatus(shift);
+                const isMismatch =
+                  shift.status === 'closed' && Number(shift.difference || 0) !== 0;
+                const isSelected = selectedShiftId === shift.id;
 
-                  return (
-                    <tr
-                      key={shift.id}
-                      onClick={() =>
-                        setSelectedShiftId((current) =>
-                          current === shift.id ? null : shift.id
-                        )
-                      }
-                      style={{
-                        ...(isMismatch ? styles.mismatchRow : {}),
-                        ...(isSelected ? styles.selectedRow : {}),
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <td style={styles.cell}>{formatDate(shift.start_time)}</td>
-                      <td style={styles.cell}>{formatTime(shift.start_time)}</td>
-                      <td style={styles.cell}>{formatTime(shift.end_time)}</td>
-                      <td style={styles.cell}>{formatCurrency(shift.total_sales)}</td>
-                      <td style={styles.cell}>{formatCurrency(shift.expected_cash)}</td>
-                      <td style={styles.cell}>
-                        {shift.closing_cash === null
-                          ? 'Open'
-                          : formatCurrency(shift.closing_cash)}
-                      </td>
-                      <td
+                return (
+                  <article
+                    key={shift.id}
+                    onClick={() =>
+                      setSelectedShiftId((current) =>
+                        current === shift.id ? null : shift.id
+                      )
+                    }
+                    style={{
+                      ...styles.mobileCard,
+                      ...(isMismatch ? styles.mismatchRow : {}),
+                      ...(isSelected ? styles.selectedCard : {}),
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={styles.mobileCardHeader}>
+                      <div>
+                        <div style={styles.mobileCardTitle}>Shift #{shift.id}</div>
+                        <div style={styles.mobileCardMeta}>
+                          {formatDate(shift.start_time)} • {formatTime(shift.start_time)}
+                        </div>
+                      </div>
+                      <span
                         style={{
-                          ...styles.cell,
-                          ...(isMismatch ? styles.mismatchText : styles.balancedText)
+                          ...styles.statusBadge,
+                          ...(auditStatus === 'Balanced'
+                            ? styles.statusBalanced
+                            : auditStatus === 'Mismatch'
+                              ? styles.statusMismatch
+                              : styles.statusOpen)
                         }}
                       >
-                        {formatCurrency(shift.difference)}
-                      </td>
-                      <td style={styles.cell}>
-                        <span
+                        {auditStatus}
+                      </span>
+                    </div>
+
+                    <div style={styles.mobileMetrics}>
+                      <div style={styles.mobileMetric}>
+                        <span style={styles.mobileMetricLabel}>End</span>
+                        <strong style={styles.mobileMetricValue}>
+                          {formatTime(shift.end_time)}
+                        </strong>
+                      </div>
+                      <div style={styles.mobileMetric}>
+                        <span style={styles.mobileMetricLabel}>Sales</span>
+                        <strong style={styles.mobileMetricValue}>
+                          {formatCurrency(shift.total_sales)}
+                        </strong>
+                      </div>
+                      <div style={styles.mobileMetric}>
+                        <span style={styles.mobileMetricLabel}>Expected</span>
+                        <strong style={styles.mobileMetricValue}>
+                          {formatCurrency(shift.expected_cash)}
+                        </strong>
+                      </div>
+                      <div style={styles.mobileMetric}>
+                        <span style={styles.mobileMetricLabel}>Actual</span>
+                        <strong style={styles.mobileMetricValue}>
+                          {shift.closing_cash === null
+                            ? 'Open'
+                            : formatCurrency(shift.closing_cash)}
+                        </strong>
+                      </div>
+                      <div style={styles.mobileMetric}>
+                        <span style={styles.mobileMetricLabel}>Difference</span>
+                        <strong
                           style={{
-                            ...styles.statusBadge,
-                            ...(auditStatus === 'Balanced'
-                              ? styles.statusBalanced
-                              : auditStatus === 'Mismatch'
-                                ? styles.statusMismatch
-                                : styles.statusOpen)
+                            ...styles.mobileMetricValue,
+                            ...(isMismatch ? styles.mismatchText : styles.balancedText)
                           }}
                         >
-                          {auditStatus}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                          {formatCurrency(shift.difference)}
+                        </strong>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={styles.tableWrap}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.headerCell}>Date</th>
+                    <th style={styles.headerCell}>Start Time</th>
+                    <th style={styles.headerCell}>End Time</th>
+                    <th style={styles.headerCell}>Total Sales</th>
+                    <th style={styles.headerCell}>Expected Cash</th>
+                    <th style={styles.headerCell}>Actual Cash</th>
+                    <th style={styles.headerCell}>Difference</th>
+                    <th style={styles.headerCell}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shifts.map((shift) => {
+                    const auditStatus = getAuditStatus(shift);
+                    const isMismatch =
+                      shift.status === 'closed' && Number(shift.difference || 0) !== 0;
+                    const isSelected = selectedShiftId === shift.id;
+
+                    return (
+                      <tr
+                        key={shift.id}
+                        onClick={() =>
+                          setSelectedShiftId((current) =>
+                            current === shift.id ? null : shift.id
+                          )
+                        }
+                        style={{
+                          ...(isMismatch ? styles.mismatchRow : {}),
+                          ...(isSelected ? styles.selectedRow : {}),
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <td style={styles.cell}>{formatDate(shift.start_time)}</td>
+                        <td style={styles.cell}>{formatTime(shift.start_time)}</td>
+                        <td style={styles.cell}>{formatTime(shift.end_time)}</td>
+                        <td style={styles.cell}>{formatCurrency(shift.total_sales)}</td>
+                        <td style={styles.cell}>{formatCurrency(shift.expected_cash)}</td>
+                        <td style={styles.cell}>
+                          {shift.closing_cash === null
+                            ? 'Open'
+                            : formatCurrency(shift.closing_cash)}
+                        </td>
+                        <td
+                          style={{
+                            ...styles.cell,
+                            ...(isMismatch ? styles.mismatchText : styles.balancedText)
+                          }}
+                        >
+                          {formatCurrency(shift.difference)}
+                        </td>
+                        <td style={styles.cell}>
+                          <span
+                            style={{
+                              ...styles.statusBadge,
+                              ...(auditStatus === 'Balanced'
+                                ? styles.statusBalanced
+                                : auditStatus === 'Mismatch'
+                                  ? styles.statusMismatch
+                                  : styles.statusOpen)
+                            }}
+                          >
+                            {auditStatus}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {selectedShift ? (
             <section style={styles.detailCard}>
@@ -252,6 +341,9 @@ const styles = {
   selectedRow: {
     boxShadow: 'inset 3px 0 0 #2457c5'
   },
+  selectedCard: {
+    boxShadow: 'inset 3px 0 0 #2457c5, 0 8px 18px rgba(16, 24, 40, 0.08)'
+  },
   mismatchText: {
     color: '#b42318',
     fontWeight: 800
@@ -308,6 +400,57 @@ const styles = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
     gap: '12px'
+  },
+  mobileCardList: {
+    marginTop: '18px',
+    display: 'grid',
+    gap: '14px'
+  },
+  mobileCard: {
+    padding: '16px',
+    borderRadius: '16px',
+    backgroundColor: '#f8fafc',
+    border: '1px solid rgba(16, 24, 40, 0.08)',
+    display: 'grid',
+    gap: '14px'
+  },
+  mobileCardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: '12px',
+    flexWrap: 'wrap'
+  },
+  mobileCardTitle: {
+    fontSize: '16px',
+    fontWeight: 800,
+    color: '#111827'
+  },
+  mobileCardMeta: {
+    marginTop: '4px',
+    fontSize: '13px',
+    color: '#667085'
+  },
+  mobileMetrics: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+    gap: '12px'
+  },
+  mobileMetric: {
+    display: 'grid',
+    gap: '4px'
+  },
+  mobileMetricLabel: {
+    fontSize: '11px',
+    fontWeight: 800,
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase',
+    color: '#667085'
+  },
+  mobileMetricValue: {
+    fontSize: '15px',
+    fontWeight: 800,
+    color: '#111827'
   },
   detailItem: {
     display: 'grid',
