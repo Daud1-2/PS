@@ -1156,7 +1156,7 @@ export default function App() {
         <div style={styles.headingCopy}>
           <h1 style={styles.title}>Product Selection</h1>
           <p style={styles.subtitle}>
-            Barcode-first checkout with a fast card grid for manual product
+            Barcode-first checkout with a fast scrollable product list for manual
             selection.
           </p>
         </div>
@@ -1207,8 +1207,8 @@ export default function App() {
               products={catalogProducts}
               isLoading={isCatalogLoading}
               variant="pos"
-              title="Quick Product Grid"
-              subtitle="4 to 6 cards per row with real-time search and instant add."
+              title="Quick Product List"
+              subtitle="Fast scrollable product list with real-time search and instant add."
               searchLabel="Search Products"
               searchPlaceholder="Type product name, barcode, or stock"
               highlightedProductId={lastScannedProductId}
@@ -1227,7 +1227,7 @@ export default function App() {
             <div>
               <div style={styles.cartTitle}>Current Sale</div>
               <div style={styles.cartSubtitle}>
-                Cards add instantly without interrupting checkout.
+                Products add instantly without interrupting checkout.
               </div>
             </div>
 

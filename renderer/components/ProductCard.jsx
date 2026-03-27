@@ -25,14 +25,13 @@ const ProductCard = memo(function ProductCard({
   const stockCount = Number(product.stock || 0);
   const isIncomplete = !hasSellingPrice(product.sellingPrice);
   const shellStyle = {
-    ...styles.card,
-    ...(variant === 'manage' ? styles.manageCard : styles.posCard),
+    ...styles.row,
     ...(stockLevel === 'low'
-      ? styles.lowStockCard
+      ? styles.lowStockRow
       : stockLevel === 'out'
-        ? styles.outOfStockCard
+        ? styles.outOfStockRow
         : {}),
-    ...(highlighted ? styles.highlightedCard : {})
+    ...(highlighted ? styles.highlightedRow : {})
   };
 
   const handleClick = () => {
@@ -65,43 +64,28 @@ const ProductCard = memo(function ProductCard({
         }
       }}
     >
-      <div style={styles.topRow}>
-        <div style={styles.nameBlock}>
-          <div style={styles.name}>{product.name}</div>
-          <div style={styles.meta}>
-            {product.barcode ? `Barcode ${product.barcode}` : 'Barcode unavailable'}
-          </div>
-        </div>
-
-        <div
-          style={{
-            ...styles.cornerBadge,
-            ...(stockLevel === 'low'
-              ? styles.cornerBadgeLow
-              : stockLevel === 'out'
-                ? styles.cornerBadgeOut
-                : styles.cornerBadgeNormal)
-          }}
-        >
-          {stockLevel === 'normal' ? '+' : '!'}
+      <div style={styles.nameBlock}>
+        <div style={styles.name}>{product.name}</div>
+        <div style={styles.meta}>
+          {product.barcode ? `Barcode ${product.barcode}` : 'Barcode unavailable'}
         </div>
       </div>
 
-      <div style={styles.middleRow}>
+      <div style={styles.infoStrip}>
         <div
           style={{
-            ...styles.stockText,
+            ...styles.stockBadge,
             ...(stockLevel === 'low'
-              ? styles.stockTextLow
+              ? styles.stockBadgeLow
               : stockLevel === 'out'
-                ? styles.stockTextOut
-                : {})
+                ? styles.stockBadgeOut
+                : styles.stockBadgeNormal)
           }}
         >
           {stockLevel === 'out'
             ? 'Out of stock'
             : stockLevel === 'low'
-              ? `Low stock: ${stockCount} left`
+              ? `${stockCount} left`
               : `Stock ${stockCount}`}
         </div>
 
@@ -110,7 +94,7 @@ const ProductCard = memo(function ProductCard({
         ) : null}
       </div>
 
-      <div style={styles.bottomRow}>
+      <div style={styles.trailingArea}>
         <div
           style={{
             ...styles.price,
@@ -155,33 +139,22 @@ const ProductCard = memo(function ProductCard({
 });
 
 const styles = {
-  card: {
-    minHeight: '148px',
-    padding: '12px',
-    borderRadius: '16px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '10px',
-    border: '1px solid rgba(22, 48, 43, 0.08)',
+  row: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1.3fr) auto auto',
+    alignItems: 'center',
+    gap: '14px',
+    padding: '14px 10px',
+    borderBottom: '1px solid rgba(22, 48, 43, 0.08)',
+    backgroundColor: 'transparent',
     boxSizing: 'border-box',
-    transition:
-      'background-color 140ms ease, box-shadow 140ms ease, border-color 140ms ease'
+    transition: 'background-color 140ms ease, border-color 140ms ease'
   },
-  posCard: {
-    background: 'linear-gradient(180deg, #ffffff 0%, #f2f6f3 100%)',
-    boxShadow: '0 10px 22px rgba(22, 48, 43, 0.06)'
+  lowStockRow: {
+    backgroundColor: 'rgba(255, 247, 237, 0.72)'
   },
-  manageCard: {
-    background: 'linear-gradient(180deg, #ffffff 0%, #f7f8fb 100%)',
-    boxShadow: '0 12px 26px rgba(15, 23, 42, 0.06)'
-  },
-  lowStockCard: {
-    background: 'linear-gradient(180deg, #fffaf0 0%, #f9efd7 100%)',
-    borderColor: 'rgba(202, 138, 4, 0.18)'
-  },
-  outOfStockCard: {
-    background: 'linear-gradient(180deg, #fff5f7 0%, #ffe8ed 100%)',
-    borderColor: 'rgba(225, 29, 72, 0.18)'
+  outOfStockRow: {
+    backgroundColor: 'rgba(255, 241, 242, 0.78)'
   },
   clickableCard: {
     cursor: 'pointer',
@@ -190,71 +163,55 @@ const styles = {
     width: '100%',
     userSelect: 'none'
   },
-  highlightedCard: {
-    borderColor: 'rgba(51, 200, 255, 0.5)',
-    boxShadow: '0 0 0 2px rgba(51, 200, 255, 0.18), 0 18px 28px rgba(22, 48, 43, 0.14)'
-  },
-  topRow: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: '10px'
+  highlightedRow: {
+    backgroundColor: 'rgba(51, 200, 255, 0.12)',
+    borderBottomColor: 'rgba(51, 200, 255, 0.32)'
   },
   nameBlock: {
     display: 'grid',
-    gap: '6px',
+    gap: '4px',
     minWidth: 0
   },
   name: {
-    fontSize: '14px',
+    fontSize: '16px',
     fontWeight: 800,
-    lineHeight: 1.3,
+    lineHeight: 1.28,
     color: '#17312d'
   },
   meta: {
-    fontSize: '11px',
+    fontSize: '12px',
     lineHeight: 1.4,
     color: '#6f8179'
   },
-  cornerBadge: {
-    width: '24px',
-    height: '24px',
-    borderRadius: '8px',
+  infoStrip: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: '10px',
+    flexWrap: 'wrap'
+  },
+  stockBadge: {
+    minHeight: '32px',
+    padding: '0 12px',
+    borderRadius: '999px',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
     fontSize: '12px',
-    fontWeight: 900
+    fontWeight: 800,
+    whiteSpace: 'nowrap'
   },
-  cornerBadgeNormal: {
+  stockBadgeNormal: {
     backgroundColor: '#e8f4ee',
     color: '#1c7b58'
   },
-  cornerBadgeLow: {
+  stockBadgeLow: {
     backgroundColor: '#fff0cc',
     color: '#a16207'
   },
-  cornerBadgeOut: {
+  stockBadgeOut: {
     backgroundColor: '#ffe4e8',
-    color: '#be123c'
-  },
-  middleRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '10px',
-    minHeight: '30px'
-  },
-  stockText: {
-    fontSize: '11px',
-    fontWeight: 600,
-    color: '#5f756c'
-  },
-  stockTextLow: {
-    color: '#a16207'
-  },
-  stockTextOut: {
     color: '#be123c'
   },
   stockTag: {
@@ -268,20 +225,19 @@ const styles = {
     color: '#5f756c',
     whiteSpace: 'nowrap'
   },
-  bottomRow: {
-    marginTop: 'auto',
+  trailingArea: {
     display: 'flex',
-    flexDirection: 'column',
+    alignItems: 'center',
     gap: '10px'
   },
   price: {
-    fontSize: '24px',
+    fontSize: '18px',
     fontWeight: 900,
     lineHeight: 1,
     color: '#17312d'
   },
   pricePending: {
-    fontSize: '18px',
+    fontSize: '15px',
     color: '#7c8f88'
   },
   priceLow: {
