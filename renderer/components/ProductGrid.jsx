@@ -112,7 +112,7 @@ const ProductGrid = memo(function ProductGrid({
         </div>
       ) : (
         <>
-          <div style={styles.listShell}>
+          <div style={styles.grid}>
             {visibleProducts.map((product) => (
               <ProductCard
                 key={product.id}
@@ -260,13 +260,11 @@ const styles = {
     fontSize: '14px',
     color: '#667d75'
   },
-  listShell: {
+  grid: {
     display: 'grid',
-    gap: 0,
-    borderRadius: '22px',
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    border: '1px solid rgba(22, 48, 43, 0.08)',
-    overflow: 'hidden'
+    gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+    gap: '12px',
+    alignItems: 'stretch'
   },
   loadMoreWrap: {
     display: 'flex',

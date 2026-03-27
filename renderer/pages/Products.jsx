@@ -101,10 +101,10 @@ export default function Products({
         <header style={styles.header}>
           <div style={styles.headerCopy}>
             <div style={styles.badge}>Products</div>
-            <h2 style={styles.title}>Catalog list layout</h2>
+            <h2 style={styles.title}>Catalog card layout</h2>
             <p style={styles.subtitle}>
               Search, scan through, and manage the offline catalog with the same
-              fast scrollable list used in the POS quick-select flow.
+              dense cards used in the POS quick-select flow.
             </p>
           </div>
 
@@ -157,7 +157,7 @@ export default function Products({
               attention.
             </div>
             <div style={styles.lowStockBannerText}>
-              Low inventory rows are highlighted so the next reorder list is easy
+              Low inventory cards are highlighted so the next reorder list is easy
               to spot.
             </div>
           </section>
@@ -168,7 +168,7 @@ export default function Products({
             products={products}
             isLoading={isLoading}
             variant="manage"
-            title="Catalog List"
+            title="Catalog Cards"
             subtitle="Real-time local filtering with edit and delete actions."
             searchLabel="Search Catalog"
             searchPlaceholder="Search by name, barcode, or stock"
@@ -356,10 +356,10 @@ const styles = {
     color: '#9a3412'
   },
   gridPanel: {
-    padding: '22px',
-    borderRadius: '28px',
-    background: 'rgba(255, 255, 255, 0.72)',
-    border: '1px solid rgba(15, 23, 42, 0.08)',
-    boxShadow: '0 18px 40px rgba(15, 23, 42, 0.06)'
+    padding: 0,
+    borderRadius: 0,
+    background: 'transparent',
+    border: 'none',
+    boxShadow: 'none'
   }
 };

@@ -1156,7 +1156,7 @@ export default function App() {
         <div style={styles.headingCopy}>
           <h1 style={styles.title}>Product Selection</h1>
           <p style={styles.subtitle}>
-            Barcode-first checkout with a fast scrollable product list for manual
+            Barcode-first checkout with a fast card grid for manual product
             selection.
           </p>
         </div>
@@ -1207,8 +1207,8 @@ export default function App() {
               products={catalogProducts}
               isLoading={isCatalogLoading}
               variant="pos"
-              title="Quick Product List"
-              subtitle="Fast scrollable product list with real-time search and instant add."
+              title="Quick Product Grid"
+              subtitle="4 to 6 cards per row with real-time search and instant add."
               searchLabel="Search Products"
               searchPlaceholder="Type product name, barcode, or stock"
               highlightedProductId={lastScannedProductId}
@@ -1227,7 +1227,7 @@ export default function App() {
             <div>
               <div style={styles.cartTitle}>Current Sale</div>
               <div style={styles.cartSubtitle}>
-                Products add instantly without interrupting checkout.
+                Cards add instantly without interrupting checkout.
               </div>
             </div>
 
@@ -1622,11 +1622,11 @@ const styles = {
   },
   gridPanel: {
     minHeight: 0,
-    padding: '18px',
-    borderRadius: '28px',
-    background: 'rgba(255, 255, 255, 0.72)',
-    border: '1px solid rgba(22, 48, 43, 0.08)',
-    boxShadow: '0 18px 40px rgba(92, 74, 28, 0.08)',
+    padding: 0,
+    borderRadius: 0,
+    background: 'transparent',
+    border: 'none',
+    boxShadow: 'none',
     overflow: 'auto'
   },
   gridPanelCompact: {
