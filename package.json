@@ -88,7 +88,7 @@
       "shortcutName": "Grocery POS",
       "installerIcon": "icons/grocery-pos.ico",
       "uninstallerIcon": "icons/grocery-pos.ico",
-      "artifactName": "${productName}-Setup-${version}.${ext}"
+      "artifactName": "Grocery-POS-Setup-${version}.${ext}"
     },
     "publish": [
       {
