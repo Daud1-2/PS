@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from 'react';
 
 function formatCurrency(value) {
-  return `$${value.toFixed(2)}`;
+  return `PKR ${Number(value || 0).toFixed(2)}`;
 }
 
 export default function CartTable({
   items,
   lastScannedProductId,
   onQuantityChange,
-  onRemove
+  onRemove,
+  tone = 'light'
 }) {
   const [draftQuantities, setDraftQuantities] = useState({});
+  const isDark = tone === 'dark';
 
   useEffect(() => {
     const next = {};
@@ -21,18 +23,6 @@ export default function CartTable({
 
     setDraftQuantities(next);
   }, [items]);
-
-  if (items.length === 0) {
-    return (
-      <section style={styles.emptyState}>
-        <div style={styles.emptyIcon}>Sale ready</div>
-        <div style={styles.emptyTitle}>Cart is empty</div>
-        <p style={styles.emptyText}>
-          Scan a barcode to start building a new bill.
-        </p>
-      </section>
-    );
-  }
 
   const commitQuantity = (productId, fallbackQuantity) => {
     const rawValue = String(
@@ -62,39 +52,103 @@ export default function CartTable({
     onQuantityChange(productId, parsedQuantity);
   };
 
-  return (
-    <section style={styles.shell}>
-      <table style={styles.table}>
-        <thead>
-          <tr>
-            <th style={{ ...styles.headerCell, ...styles.nameColumn }}>Name</th>
-            <th style={styles.headerCell}>Price</th>
-            <th style={styles.headerCell}>Qty</th>
-            <th style={styles.headerCell}>Total</th>
-            <th style={{ ...styles.headerCell, ...styles.removeColumn }}>
-              Remove
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => {
-            const isHighlighted = item.product_id === lastScannedProductId;
-            const draftValue =
-              draftQuantities[item.product_id] !== undefined
-                ? draftQuantities[item.product_id]
-                : String(item.quantity);
+  const stepQuantity = (productId, nextQuantity) => {
+    onQuantityChange(productId, nextQuantity);
+  };
 
-            return (
-              <tr
-                key={item.product_id}
-                style={{
-                  ...styles.row,
-                  ...(isHighlighted ? styles.highlightedRow : {})
-                }}
-              >
-                <td style={{ ...styles.cell, ...styles.nameCell }}>{item.name}</td>
-                <td style={styles.cell}>{formatCurrency(item.price)}</td>
-                <td style={styles.cell}>
+  if (items.length === 0) {
+    return (
+      <section
+        style={{
+          ...styles.emptyState,
+          ...(isDark ? styles.emptyStateDark : {})
+        }}
+      >
+        <div style={{ ...styles.emptyEyebrow, ...(isDark ? styles.emptyEyebrowDark : {}) }}>
+          Sale ready
+        </div>
+        <div style={{ ...styles.emptyTitle, ...(isDark ? styles.emptyTitleDark : {}) }}>
+          Cart is empty
+        </div>
+        <p style={{ ...styles.emptyText, ...(isDark ? styles.emptyTextDark : {}) }}>
+          Scan a barcode or tap a product card to start building a bill.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section style={{ ...styles.shell, ...(isDark ? styles.shellDark : {}) }}>
+      <div style={styles.list}>
+        {items.map((item) => {
+          const isHighlighted = item.product_id === lastScannedProductId;
+          const draftValue =
+            draftQuantities[item.product_id] !== undefined
+              ? draftQuantities[item.product_id]
+              : String(item.quantity);
+
+          return (
+            <article
+              key={item.product_id}
+              style={{
+                ...styles.itemCard,
+                ...(isDark ? styles.itemCardDark : {}),
+                ...(isHighlighted ? styles.itemCardHighlighted : {})
+              }}
+            >
+              <div style={styles.itemHeader}>
+                <div style={styles.itemCopy}>
+                  <div
+                    style={{
+                      ...styles.itemName,
+                      ...(isDark ? styles.itemNameDark : {})
+                    }}
+                  >
+                    {item.name}
+                  </div>
+                  <div
+                    style={{
+                      ...styles.itemMeta,
+                      ...(isDark ? styles.itemMetaDark : {})
+                    }}
+                  >
+                    {formatCurrency(item.price)} each
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    ...styles.itemTotal,
+                    ...(isDark ? styles.itemTotalDark : {})
+                  }}
+                >
+                  {formatCurrency(item.price * item.quantity)}
+                </div>
+              </div>
+
+              <div style={styles.itemFooter}>
+                <div style={styles.quantityWrap}>
+                  <span
+                    style={{
+                      ...styles.quantityLabel,
+                      ...(isDark ? styles.quantityLabelDark : {})
+                    }}
+                  >
+                    Qty
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      stepQuantity(item.product_id, item.quantity - 1);
+                    }}
+                    style={{
+                      ...styles.stepButton,
+                      ...(isDark ? styles.stepButtonDark : {})
+                    }}
+                    aria-label={`Decrease quantity for ${item.name}`}
+                  >
+                    -
+                  </button>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -133,112 +187,188 @@ export default function CartTable({
                         event.currentTarget.blur();
                       }
                     }}
-                    style={styles.quantityInput}
+                    style={{
+                      ...styles.quantityInput,
+                      ...(isDark ? styles.quantityInputDark : {})
+                    }}
                     aria-label={`Quantity for ${item.name}`}
                   />
-                </td>
-                <td style={{ ...styles.cell, ...styles.totalCell }}>
-                  {formatCurrency(item.price * item.quantity)}
-                </td>
-                <td style={styles.cell}>
                   <button
                     type="button"
-                    onClick={() => onRemove(item.product_id)}
-                    style={styles.removeButton}
-                    aria-label={`Remove ${item.name}`}
+                    onClick={() => {
+                      stepQuantity(item.product_id, item.quantity + 1);
+                    }}
+                    style={{
+                      ...styles.stepButton,
+                      ...(isDark ? styles.stepButtonDark : {})
+                    }}
+                    aria-label={`Increase quantity for ${item.name}`}
                   >
-                    Remove
+                    +
                   </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => onRemove(item.product_id)}
+                  style={{
+                    ...styles.removeButton,
+                    ...(isDark ? styles.removeButtonDark : {})
+                  }}
+                  aria-label={`Remove ${item.name}`}
+                >
+                  Remove
+                </button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
     </section>
   );
 }
 
 const styles = {
   shell: {
-    minHeight: '100%',
-    overflow: 'auto',
+    minHeight: 0,
+    overflowY: 'auto',
+    overflowX: 'hidden'
+  },
+  shellDark: {
+    flex: 1
+  },
+  list: {
+    display: 'grid',
+    gap: '10px'
+  },
+  itemCard: {
+    display: 'grid',
+    gap: '12px',
+    padding: '14px 16px',
     borderRadius: '18px',
     backgroundColor: '#ffffff',
     border: '1px solid rgba(16, 24, 40, 0.08)',
-    boxShadow: '0 8px 24px rgba(16, 24, 40, 0.05)'
+    boxShadow: '0 10px 24px rgba(16, 24, 40, 0.06)'
   },
-  table: {
-    width: '100%',
-    borderCollapse: 'separate',
-    borderSpacing: 0
+  itemCardDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    border: '1px solid rgba(255, 255, 255, 0.05)',
+    boxShadow: 'none'
   },
-  headerCell: {
-    position: 'sticky',
-    top: 0,
-    zIndex: 1,
-    padding: '16px 20px',
-    backgroundColor: '#f8fafc',
-    borderBottom: '1px solid rgba(16, 24, 40, 0.08)',
-    textAlign: 'left',
-    fontSize: '12px',
+  itemCardHighlighted: {
+    boxShadow: '0 0 0 2px rgba(51, 200, 255, 0.22)'
+  },
+  itemHeader: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: '12px'
+  },
+  itemCopy: {
+    display: 'grid',
+    gap: '6px'
+  },
+  itemName: {
+    fontSize: '16px',
     fontWeight: 700,
+    color: '#101828'
+  },
+  itemNameDark: {
+    color: '#ffffff'
+  },
+  itemMeta: {
+    fontSize: '13px',
+    color: '#667085'
+  },
+  itemMetaDark: {
+    color: '#a6bbb1'
+  },
+  itemTotal: {
+    fontSize: '18px',
+    fontWeight: 800,
+    color: '#101828',
+    whiteSpace: 'nowrap'
+  },
+  itemTotalDark: {
+    color: '#ffffff'
+  },
+  itemFooter: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '12px',
+    flexWrap: 'wrap'
+  },
+  quantityWrap: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    flexWrap: 'wrap'
+  },
+  quantityLabel: {
+    fontSize: '12px',
+    fontWeight: 800,
     letterSpacing: '0.08em',
     textTransform: 'uppercase',
     color: '#667085'
   },
-  nameColumn: {
-    width: '42%'
-  },
-  removeColumn: {
-    width: '132px'
-  },
-  row: {
-    transition: 'background-color 260ms ease, box-shadow 260ms ease'
-  },
-  highlightedRow: {
-    backgroundColor: '#eef6ff',
-    boxShadow: 'inset 3px 0 0 #2f6fed'
-  },
-  cell: {
-    padding: '18px 20px',
-    borderBottom: '1px solid rgba(16, 24, 40, 0.06)',
-    fontSize: '15px',
-    color: '#101828',
-    verticalAlign: 'middle'
-  },
-  nameCell: {
-    fontWeight: 600
-  },
-  totalCell: {
-    fontWeight: 700
+  quantityLabelDark: {
+    color: '#8fb2a5'
   },
   quantityInput: {
-    width: '86px',
-    minHeight: '42px',
+    width: '72px',
+    minHeight: '38px',
     padding: '8px 10px',
     borderRadius: '12px',
-    border: '1px solid rgba(16, 24, 40, 0.14)',
-    backgroundColor: '#ffffff',
-    fontSize: '17px',
-    fontWeight: 700,
+    border: '1px solid rgba(16, 24, 40, 0.12)',
+    backgroundColor: '#f8fafc',
+    fontSize: '15px',
+    fontWeight: 800,
     color: '#101828',
     boxSizing: 'border-box'
   },
-  removeButton: {
-    minHeight: '40px',
-    padding: '0 14px',
-    borderRadius: '12px',
-    border: '1px solid rgba(239, 68, 68, 0.14)',
-    backgroundColor: '#fff5f5',
-    color: '#c93636',
-    fontSize: '14px',
-    fontWeight: 700,
+  quantityInputDark: {
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    color: '#ffffff'
+  },
+  stepButton: {
+    width: '34px',
+    minWidth: '34px',
+    minHeight: '34px',
+    borderRadius: '10px',
+    border: '1px solid rgba(16, 24, 40, 0.12)',
+    backgroundColor: '#f8fafc',
+    color: '#101828',
+    fontSize: '18px',
+    fontWeight: 800,
     cursor: 'pointer'
   },
+  stepButtonDark: {
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    color: '#ffffff'
+  },
+  removeButton: {
+    minHeight: '38px',
+    padding: '0 14px',
+    borderRadius: '12px',
+    border: '1px solid rgba(225, 29, 72, 0.14)',
+    backgroundColor: '#fff1f3',
+    color: '#be123c',
+    fontSize: '13px',
+    fontWeight: 800,
+    cursor: 'pointer',
+    flexShrink: 0
+  },
+  removeButtonDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    border: '1px solid rgba(255, 255, 255, 0.06)',
+    color: '#f5f1e8'
+  },
   emptyState: {
-    minHeight: '100%',
-    borderRadius: '18px',
+    minHeight: '220px',
+    borderRadius: '22px',
     backgroundColor: '#ffffff',
     border: '1px dashed rgba(16, 24, 40, 0.12)',
     display: 'grid',
@@ -246,27 +376,41 @@ const styles = {
     alignContent: 'center',
     gap: '8px',
     padding: '32px',
-    boxShadow: '0 8px 24px rgba(16, 24, 40, 0.05)',
     boxSizing: 'border-box'
   },
-  emptyIcon: {
+  emptyStateDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    border: '1px dashed rgba(255, 255, 255, 0.12)'
+  },
+  emptyEyebrow: {
     padding: '6px 12px',
     borderRadius: '999px',
     backgroundColor: '#eef4ff',
-    color: '#2f6fed',
+    color: '#2457c5',
     fontSize: '12px',
-    fontWeight: 700,
+    fontWeight: 800,
     letterSpacing: '0.08em',
     textTransform: 'uppercase'
   },
+  emptyEyebrowDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    color: '#a6bbb1'
+  },
   emptyTitle: {
-    fontSize: '22px',
-    fontWeight: 700,
+    fontSize: '18px',
+    fontWeight: 800,
     color: '#101828'
+  },
+  emptyTitleDark: {
+    color: '#ffffff'
   },
   emptyText: {
     margin: 0,
-    fontSize: '14px',
-    color: '#667085'
+    fontSize: '12px',
+    color: '#667085',
+    textAlign: 'center'
+  },
+  emptyTextDark: {
+    color: '#a6bbb1'
   }
 };

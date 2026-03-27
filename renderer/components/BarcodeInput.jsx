@@ -7,16 +7,20 @@ import React, {
 } from 'react';
 
 const BarcodeInput = forwardRef(function BarcodeInput(
-  { onProductScanned, onScanMiss },
+  { onProductScanned, onScanMiss, onQuickAddRequested },
   ref
 ) {
   const inputRef = useRef(null);
   const [barcode, setBarcode] = useState('');
   const [isLookingUp, setIsLookingUp] = useState(false);
+  const [missingBarcode, setMissingBarcode] = useState('');
 
   useImperativeHandle(ref, () => ({
     focus() {
       inputRef.current?.focus();
+    },
+    clearMissState() {
+      setMissingBarcode('');
     }
   }));
 
@@ -26,6 +30,7 @@ const BarcodeInput = forwardRef(function BarcodeInput(
 
   const handleSubmit = async () => {
     const normalizedBarcode = barcode.trim();
+    let shouldRefocusScanner = true;
 
     if (!normalizedBarcode || isLookingUp) {
       inputRef.current?.focus();
@@ -37,101 +42,230 @@ const BarcodeInput = forwardRef(function BarcodeInput(
     try {
       let product = await window.posAPI.getProduct(normalizedBarcode);
 
-      if (product) {
-        onProductScanned?.(product, normalizedBarcode);
-      } else {
+      if (!product) {
         try {
           await window.posAPI.refreshProducts();
           product = await window.posAPI.getProduct(normalizedBarcode);
         } catch (refreshError) {
           console.error('Product refresh failed after scan miss:', refreshError);
         }
+      }
 
-        if (product) {
-          onProductScanned?.(product, normalizedBarcode);
-        } else {
-          onScanMiss?.(normalizedBarcode);
-        }
+      if (product) {
+        setMissingBarcode('');
+        shouldRefocusScanner = onProductScanned?.(product, normalizedBarcode) !== false;
+      } else {
+        setMissingBarcode(normalizedBarcode);
+        onScanMiss?.(normalizedBarcode);
       }
     } catch (error) {
       console.error('Product lookup failed:', error);
+      setMissingBarcode('');
       onScanMiss?.(normalizedBarcode, error);
     } finally {
       setBarcode('');
       setIsLookingUp(false);
-      window.requestAnimationFrame(() => {
-        inputRef.current?.focus();
-      });
-    }
-  };
 
-  const handleKeyDown = async (event) => {
-    if (event.key !== 'Enter') {
-      return;
+      if (shouldRefocusScanner) {
+        window.requestAnimationFrame(() => {
+          inputRef.current?.focus();
+        });
+      }
     }
-
-    event.preventDefault();
-    await handleSubmit();
   };
 
   return (
-    <div style={styles.wrapper}>
-      <label htmlFor="barcode-input" style={styles.label}>
-        Barcode
-      </label>
-      <input
-        id="barcode-input"
-        ref={inputRef}
-        type="text"
-        inputMode="numeric"
-        autoComplete="off"
-        spellCheck="false"
-        value={barcode}
-        onChange={(event) => setBarcode(event.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="Scan or type barcode, then press Enter"
-        style={styles.input}
-      />
-      <div style={styles.hint}>{isLookingUp ? 'Looking up product...' : 'Ready for next scan'}</div>
-    </div>
+    <section style={styles.shell}>
+      <div style={styles.searchBar}>
+        <div style={styles.searchIcon}>S</div>
+
+        <div style={styles.inputWrap}>
+          <div style={styles.label}>Search Products</div>
+          <input
+            id="barcode-input"
+            ref={inputRef}
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            spellCheck="false"
+            value={barcode}
+            onChange={(event) => {
+              setBarcode(event.target.value);
+
+              if (missingBarcode) {
+                setMissingBarcode('');
+              }
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                void handleSubmit();
+              }
+            }}
+            placeholder="Scan or type barcode, then press Enter"
+            style={styles.input}
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            void handleSubmit();
+          }}
+          disabled={isLookingUp}
+          style={{
+            ...styles.enterButton,
+            ...(isLookingUp ? styles.enterButtonDisabled : {})
+          }}
+        >
+          {isLookingUp ? '...' : 'Enter'}
+        </button>
+      </div>
+
+      <div style={styles.metaRow}>
+        <div style={styles.metaText}>
+          {isLookingUp
+            ? 'Looking up product...'
+            : 'Scanner-ready input for fast cashier flow'}
+        </div>
+        <div style={styles.metaPill}>Press Enter to add</div>
+      </div>
+
+      {missingBarcode ? (
+        <div style={styles.missCard}>
+          <div style={styles.missTitle}>Product not found</div>
+          <div style={styles.missMeta}>Barcode {missingBarcode}</div>
+          <button
+            type="button"
+            onClick={() => onQuickAddRequested?.(missingBarcode)}
+            style={styles.quickAddButton}
+          >
+            Add New Product
+          </button>
+        </div>
+      ) : null}
+    </section>
   );
 });
 
 const styles = {
-  wrapper: {
+  shell: {
     display: 'grid',
-    gap: '8px',
-    padding: '16px',
-    borderRadius: '18px',
-    backgroundColor: '#ffffff',
-    border: '1px solid rgba(16, 24, 40, 0.08)',
-    boxShadow: '0 6px 20px rgba(16, 24, 40, 0.05)'
+    gap: '10px'
+  },
+  searchBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    padding: '18px 20px',
+    borderRadius: '26px',
+    background: 'rgba(255, 255, 255, 0.84)',
+    border: '1px solid rgba(22, 48, 43, 0.1)',
+    boxShadow: '0 16px 34px rgba(92, 74, 28, 0.08)'
+  },
+  searchIcon: {
+    width: '48px',
+    height: '48px',
+    borderRadius: '16px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#17312d',
+    color: '#ffffff',
+    fontSize: '24px',
+    fontWeight: 800,
+    flexShrink: 0
+  },
+  inputWrap: {
+    display: 'grid',
+    gap: '6px',
+    flex: 1
   },
   label: {
-    fontSize: '13px',
-    fontWeight: 700,
-    letterSpacing: '0.04em',
+    fontSize: '12px',
+    fontWeight: 800,
+    letterSpacing: '0.08em',
     textTransform: 'uppercase',
-    color: '#4a5565'
+    color: '#7c8f88'
   },
   input: {
     width: '100%',
-    minHeight: '70px',
-    padding: '16px 18px',
-    borderRadius: '14px',
-    border: '1px solid rgba(31, 41, 55, 0.16)',
-    backgroundColor: '#fbfcfe',
-    fontSize: '20px',
-    fontWeight: 600,
-    letterSpacing: '0.01em',
-    lineHeight: 1.2,
+    minHeight: '34px',
+    border: 'none',
+    backgroundColor: 'transparent',
     outline: 'none',
-    boxSizing: 'border-box',
-    boxShadow: 'inset 0 1px 2px rgba(16, 24, 40, 0.04)'
+    fontSize: '16px',
+    fontWeight: 700,
+    color: '#6b7280',
+    boxSizing: 'border-box'
   },
-  hint: {
+  enterButton: {
+    minWidth: '88px',
+    minHeight: '46px',
+    padding: '0 18px',
+    border: 'none',
+    borderRadius: '16px',
+    backgroundColor: '#17312d',
+    color: '#ffffff',
+    fontSize: '15px',
+    fontWeight: 800,
+    cursor: 'pointer',
+    flexShrink: 0
+  },
+  enterButtonDisabled: {
+    opacity: 0.7,
+    cursor: 'not-allowed'
+  },
+  metaRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '12px',
+    flexWrap: 'wrap',
+    padding: '0 4px'
+  },
+  metaText: {
     fontSize: '12px',
-    color: '#667085'
+    color: '#667d75'
+  },
+  metaPill: {
+    padding: '6px 10px',
+    borderRadius: '999px',
+    backgroundColor: '#edf4f0',
+    color: '#48665d',
+    fontSize: '11px',
+    fontWeight: 800,
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase'
+  },
+  missCard: {
+    display: 'grid',
+    gap: '6px',
+    padding: '14px 16px',
+    borderRadius: '16px',
+    backgroundColor: '#fff3f5',
+    border: '1px solid rgba(225, 29, 72, 0.14)'
+  },
+  missTitle: {
+    fontSize: '13px',
+    fontWeight: 800,
+    color: '#be123c'
+  },
+  missMeta: {
+    fontSize: '12px',
+    color: '#9f1239'
+  },
+  quickAddButton: {
+    justifySelf: 'start',
+    minHeight: '38px',
+    padding: '0 12px',
+    borderRadius: '12px',
+    border: 'none',
+    backgroundColor: '#be123c',
+    color: '#ffffff',
+    fontSize: '13px',
+    fontWeight: 700,
+    cursor: 'pointer'
   }
 };
 

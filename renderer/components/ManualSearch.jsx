@@ -157,6 +157,12 @@ const ManualSearch = forwardRef(function ManualSearch(
     }
   };
 
+  const formatResultPrice = (product) => {
+    return product?.sellingPrice === null || product?.sellingPrice === undefined
+      ? 'Price pending'
+      : `PKR ${Number(product.sellingPrice).toFixed(2)}`;
+  };
+
   return (
     <div style={styles.wrapper}>
       <label htmlFor="manual-search-input" style={styles.label}>
@@ -208,8 +214,7 @@ const ManualSearch = forwardRef(function ManualSearch(
                   >
                     <span style={styles.resultName}>{product.name}</span>
                     <span style={styles.resultMeta}>
-                      {product.barcode} | ${Number(product.sellingPrice).toFixed(2)} |{' '}
-                      Stock {product.stock}
+                      {product.barcode} | {formatResultPrice(product)} | Stock {product.stock}
                     </span>
                   </button>
                 );

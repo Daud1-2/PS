@@ -2,6 +2,9 @@ const express = require('express');
 const { query, withTransaction } = require('../db');
 
 const router = express.Router();
+const DEFAULT_STORE_ID =
+  String(process.env.DEFAULT_STORE_ID || process.env.STORE_ID || 'default-store').trim() ||
+  'default-store';
 
 function parseTimestamp(value, fallback = new Date().toISOString()) {
   const parsed = new Date(value || '');
@@ -11,6 +14,78 @@ function parseTimestamp(value, fallback = new Date().toISOString()) {
   }
 
   return parsed.toISOString();
+}
+
+function normalizeMoney(value, label) {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue) || numericValue < 0) {
+    throw new Error(`${label} must be a valid amount.`);
+  }
+
+  return Number(numericValue.toFixed(2));
+}
+
+function normalizeInteger(value, label, { minimum = 1 } = {}) {
+  const numericValue = Number.parseInt(String(value ?? ''), 10);
+
+  if (!Number.isInteger(numericValue) || numericValue < minimum) {
+    throw new Error(`${label} must be a valid integer.`);
+  }
+
+  return numericValue;
+}
+
+function normalizeSyncedSale(payload) {
+  const sale = payload?.sale;
+  const items = Array.isArray(payload?.items) ? payload.items : [];
+
+  if (!sale?.posSaleId) {
+    throw new Error('Invalid sale payload.');
+  }
+
+  if (items.length === 0) {
+    throw new Error('Sale payload must include at least one item.');
+  }
+
+  if (sale.storeId && String(sale.storeId).trim() !== DEFAULT_STORE_ID) {
+    throw new Error('Sale store id does not match the configured store.');
+  }
+
+  return {
+    sale: {
+      posSaleId: normalizeInteger(sale.posSaleId, 'Sale id'),
+      storeId: DEFAULT_STORE_ID,
+      shiftId:
+        sale.shiftId === null || sale.shiftId === undefined
+          ? null
+          : normalizeInteger(sale.shiftId, 'Shift id'),
+      totalAmount: normalizeMoney(sale.totalAmount, 'Sale total amount'),
+      totalCost: normalizeMoney(sale.totalCost, 'Sale total cost'),
+      createdAt: parseTimestamp(sale.createdAt)
+    },
+    items: items.map((item, index) => ({
+      cloudProductId:
+        item?.cloudProductId === null || item?.cloudProductId === undefined
+          ? null
+          : normalizeInteger(item.cloudProductId, `Item ${index + 1} cloud product id`),
+      localProductId:
+        item?.localProductId === null || item?.localProductId === undefined
+          ? null
+          : normalizeInteger(item.localProductId, `Item ${index + 1} local product id`),
+      productName: String(item?.productName || '').trim() || 'Unknown product',
+      barcode: String(item?.barcode || '').trim() || null,
+      quantity: normalizeInteger(item?.quantity, `Item ${index + 1} quantity`),
+      price: normalizeMoney(item?.price, `Item ${index + 1} price`),
+      costPrice: normalizeMoney(item?.costPrice, `Item ${index + 1} cost price`),
+      stock: normalizeInteger(item?.stock ?? 0, `Item ${index + 1} stock`, {
+        minimum: 0
+      }),
+      catalogUpdatedAt: parseTimestamp(item?.catalogUpdatedAt, sale.createdAt),
+      stockUpdatedAt: parseTimestamp(item?.stockUpdatedAt, sale.createdAt),
+      createdSource: String(item?.createdSource || 'pos').trim() || 'pos'
+    }))
+  };
 }
 
 async function findCloudProduct(client, item, storeId) {
@@ -244,27 +319,24 @@ router.post('/sync/sales', async (req, res, next) => {
       const syncedResults = [];
 
       for (const payload of incomingSales) {
-        const sale = payload?.sale;
-        const items = Array.isArray(payload?.items) ? payload.items : [];
-
-        if (!sale?.posSaleId || !sale?.storeId) {
-          throw new Error('Invalid sale payload.');
-        }
+        const { sale, items } = normalizeSyncedSale(payload);
 
         const saleResult = await client.query(
           `
             INSERT INTO sales (
               store_id,
               pos_sale_id,
+              shift_id,
               total_amount,
               total_cost,
               created_at,
               received_at,
               sync_status
             )
-            VALUES ($1, $2, $3, $4, $5, NOW(), 'synced')
+            VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'synced')
             ON CONFLICT (store_id, pos_sale_id)
             DO UPDATE SET
+              shift_id = EXCLUDED.shift_id,
               total_amount = EXCLUDED.total_amount,
               total_cost = EXCLUDED.total_cost,
               created_at = EXCLUDED.created_at,
@@ -275,6 +347,7 @@ router.post('/sync/sales', async (req, res, next) => {
           [
             sale.storeId,
             sale.posSaleId,
+            sale.shiftId,
             sale.totalAmount,
             sale.totalCost,
             sale.createdAt
@@ -340,7 +413,8 @@ router.get('/sales', async (_req, res, next) => {
   try {
     const [dailyResult, summaryResult, topProductsResult, syncResult] =
       await Promise.all([
-        query(`
+        query(
+          `
           SELECT
             TO_CHAR(DATE_TRUNC('day', created_at), 'YYYY-MM-DD') AS date,
             COUNT(*)::int AS "salesCount",
@@ -348,33 +422,49 @@ router.get('/sales', async (_req, res, next) => {
             COALESCE(SUM(total_cost), 0)::float AS "totalCost",
             COALESCE(SUM(total_amount - total_cost), 0)::float AS profit
           FROM sales
+          WHERE store_id = $1
           GROUP BY DATE_TRUNC('day', created_at)
           ORDER BY DATE_TRUNC('day', created_at) DESC
           LIMIT 30
-        `),
-        query(`
+        `,
+          [DEFAULT_STORE_ID]
+        ),
+        query(
+          `
           SELECT
             COUNT(*)::int AS "salesCount",
             COALESCE(SUM(total_amount), 0)::float AS "totalAmount",
             COALESCE(SUM(total_cost), 0)::float AS "totalCost",
             COALESCE(SUM(total_amount - total_cost), 0)::float AS profit
           FROM sales
-        `),
-        query(`
+          WHERE store_id = $1
+        `,
+          [DEFAULT_STORE_ID]
+        ),
+        query(
+          `
           SELECT
             COALESCE(si.product_id, 0)::bigint AS "productId",
             si.product_name AS "productName",
             COALESCE(SUM(si.quantity), 0)::int AS "quantitySold",
             COALESCE(SUM(si.quantity * si.price), 0)::float AS revenue
           FROM sale_items si
+          INNER JOIN sales s ON s.id = si.sale_id
+          WHERE s.store_id = $1
           GROUP BY si.product_id, si.product_name
           ORDER BY "quantitySold" DESC, revenue DESC
           LIMIT 5
-        `),
-        query(`
+        `,
+          [DEFAULT_STORE_ID]
+        ),
+        query(
+          `
           SELECT MAX(received_at) AS "lastSyncTime"
           FROM sales
-        `)
+          WHERE store_id = $1
+        `,
+          [DEFAULT_STORE_ID]
+        )
       ]);
 
     res.json({

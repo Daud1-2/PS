@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import ProductManager from './ProductManager.jsx';
+import Shifts from './Shifts.jsx';
+import { getStockAlertLevel, hasVeryLowStock } from '../shared/stockAlerts.js';
 
 const adminConfig = window.__ADMIN_CONFIG__ || {};
 const refreshIntervalMs = Number(adminConfig.refreshMs) || 45000;
@@ -23,18 +25,41 @@ async function fetchJson(pathname, apiKey) {
   });
 
   if (response.status === 401) {
-    throw new Error('UNAUTHORIZED');
+    const error = new Error('UNAUTHORIZED');
+    error.code = 'UNAUTHORIZED';
+    error.pathname = pathname;
+    throw error;
   }
 
   if (!response.ok) {
-    throw new Error(`Request failed for ${pathname}: ${response.status}`);
+    let detail = '';
+
+    try {
+      const contentType = response.headers.get('content-type') || '';
+
+      if (contentType.includes('application/json')) {
+        const payload = await response.json();
+        detail = payload?.error || '';
+      } else {
+        detail = (await response.text()).trim();
+      }
+    } catch (_error) {
+      detail = '';
+    }
+
+    const error = new Error(
+      detail || `Request failed for ${pathname}: ${response.status}`
+    );
+    error.status = response.status;
+    error.pathname = pathname;
+    throw error;
   }
 
   return response.json();
 }
 
 function formatCurrency(value) {
-  return `$${Number(value || 0).toFixed(2)}`;
+  return `PKR ${Number(value || 0).toFixed(2)}`;
 }
 
 function formatDateTime(value) {
@@ -51,7 +76,8 @@ function SummaryCard({ label, value, tone = 'neutral' }) {
       style={{
         ...styles.card,
         ...(tone === 'primary' ? styles.cardPrimary : {}),
-        ...(tone === 'accent' ? styles.cardAccent : {})
+        ...(tone === 'accent' ? styles.cardAccent : {}),
+        ...(tone === 'warning' ? styles.cardWarning : {})
       }}
     >
       <div style={styles.cardLabel}>{label}</div>
@@ -69,7 +95,13 @@ function EmptyState({ title, message }) {
   );
 }
 
+const adminSections = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'shifts', label: 'Shifts' }
+];
+
 export default function App() {
+  const [activeSection, setActiveSection] = useState('overview');
   const [apiKey, setApiKey] = useState(() => {
     return window.localStorage.getItem(API_KEY_STORAGE_KEY) || '';
   });
@@ -95,6 +127,10 @@ export default function App() {
     products: [],
     serverTime: null
   });
+  const [shiftsData, setShiftsData] = useState({
+    shifts: [],
+    lastSyncTime: null
+  });
   const [lastRefreshTime, setLastRefreshTime] = useState(null);
   const [statusMessage, setStatusMessage] = useState(
     apiKey ? 'Connecting to admin API...' : 'Enter your admin API key to load data'
@@ -108,11 +144,31 @@ export default function App() {
       (summary, item) => {
         summary.totalProducts += 1;
         summary.totalUnits += Number(item.stock || 0);
+        if (hasVeryLowStock(item.stock)) {
+          summary.lowStockProducts += 1;
+        }
         return summary;
       },
-      { totalProducts: 0, totalUnits: 0 }
+      { totalProducts: 0, totalUnits: 0, lowStockProducts: 0 }
     );
   }, [inventoryData]);
+
+  const shiftSummary = useMemo(() => {
+    const shifts = shiftsData.shifts || [];
+    return shifts.reduce(
+      (summary, shift) => {
+        summary.total += 1;
+        if (String(shift.status) === 'open') {
+          summary.open += 1;
+        }
+        if (String(shift.status) === 'closed' && Number(shift.difference || 0) !== 0) {
+          summary.mismatch += 1;
+        }
+        return summary;
+      },
+      { total: 0, open: 0, mismatch: 0 }
+    );
+  }, [shiftsData]);
 
   async function loadDashboard(activeApiKey) {
     if (!activeApiKey) {
@@ -122,22 +178,82 @@ export default function App() {
     setIsLoading(true);
 
     try {
-      const [sales, inventory, products] = await Promise.all([
-        fetchJson('/sales', activeApiKey),
-        fetchJson('/inventory', activeApiKey),
-        fetchJson('/products', activeApiKey)
-      ]);
+      const requests = [
+        { key: 'sales', label: 'sales', pathname: '/sales' },
+        { key: 'inventory', label: 'inventory', pathname: '/inventory' },
+        { key: 'products', label: 'products', pathname: '/products' },
+        { key: 'shifts', label: 'shifts', pathname: '/shifts' }
+      ];
+      const results = await Promise.allSettled(
+        requests.map((request) => fetchJson(request.pathname, activeApiKey))
+      );
+      const failedSections = [];
+      let unauthorizedError = null;
+      let successCount = 0;
 
-      setSalesData(sales);
-      setInventoryData(inventory);
-      setProductsData(products);
+      results.forEach((result, index) => {
+        const request = requests[index];
+
+        if (result.status === 'rejected') {
+          if (result.reason?.code === 'UNAUTHORIZED') {
+            unauthorizedError = result.reason;
+            return;
+          }
+
+          console.error(
+            `Admin dashboard refresh failed for ${request.pathname}:`,
+            result.reason
+          );
+          failedSections.push(request.label);
+          return;
+        }
+
+        successCount += 1;
+
+        if (request.key === 'sales') {
+          setSalesData(result.value);
+          return;
+        }
+
+        if (request.key === 'inventory') {
+          setInventoryData(result.value);
+          return;
+        }
+
+        if (request.key === 'products') {
+          setProductsData(result.value);
+          return;
+        }
+
+        if (request.key === 'shifts') {
+          setShiftsData(result.value);
+        }
+      });
+
+      if (unauthorizedError) {
+        throw unauthorizedError;
+      }
+
+      if (successCount === 0) {
+        throw new Error('No dashboard endpoints could be refreshed.');
+      }
+
       setLastRefreshTime(new Date().toISOString());
-      setStatusMessage('Dashboard up to date');
-      setHasError(false);
+
+      if (failedSections.length === 0) {
+        setStatusMessage('Dashboard up to date');
+        setHasError(false);
+        return;
+      }
+
+      setStatusMessage(
+        `Dashboard updated with warnings. Failed: ${failedSections.join(', ')}.`
+      );
+      setHasError(true);
     } catch (error) {
       console.error('Admin dashboard refresh failed:', error);
 
-      if (error.message === 'UNAUTHORIZED') {
+      if (error.code === 'UNAUTHORIZED' || error.message === 'UNAUTHORIZED') {
         setStatusMessage('API key rejected. Enter a valid key to continue.');
         setHasError(true);
         window.localStorage.removeItem(API_KEY_STORAGE_KEY);
@@ -145,7 +261,7 @@ export default function App() {
         return;
       }
 
-      setStatusMessage('Unable to refresh dashboard');
+      setStatusMessage(error?.message || 'Unable to refresh dashboard');
       setHasError(true);
     } finally {
       setIsLoading(false);
@@ -167,7 +283,7 @@ export default function App() {
       await loadDashboard(apiKey);
     }
 
-    refresh();
+    void refresh();
     const intervalId = window.setInterval(refresh, refreshIntervalMs);
 
     return () => {
@@ -215,6 +331,10 @@ export default function App() {
       products: [],
       serverTime: null
     });
+    setShiftsData({
+      shifts: [],
+      lastSyncTime: null
+    });
     setLastRefreshTime(null);
     setStatusMessage('Enter your admin API key to load data');
     setHasError(false);
@@ -226,10 +346,10 @@ export default function App() {
         <header style={styles.header}>
           <div>
             <div style={styles.badge}>Admin Dashboard</div>
-            <h1 style={styles.title}>Sales and inventory overview</h1>
+            <h1 style={styles.title}>Sales, inventory, and shift audit</h1>
             <p style={styles.subtitle}>
-              Live-ish reporting from synced POS sales, current stock levels,
-              and product performance across your offline checkout system.
+              Live-ish reporting from synced POS sales, stock levels, and cashier
+              shifts with clear mismatch visibility.
             </p>
           </div>
 
@@ -248,7 +368,7 @@ export default function App() {
               Last sales sync: {formatDateTime(salesData.lastSyncTime)}
             </div>
             <div style={styles.statusMeta}>
-              Last inventory sync: {formatDateTime(inventoryData.lastSyncTime)}
+              Last shift sync: {formatDateTime(shiftsData.lastSyncTime)}
             </div>
             <div style={styles.statusMeta}>
               Refresh interval: {Math.round(refreshIntervalMs / 1000)} seconds
@@ -303,133 +423,198 @@ export default function App() {
             tone="accent"
           />
           <SummaryCard
-            label="Units in stock"
-            value={inventorySummary.totalUnits}
+            label="Low stock items"
+            value={inventorySummary.lowStockProducts}
+            tone={inventorySummary.lowStockProducts > 0 ? 'warning' : 'neutral'}
+          />
+          <SummaryCard
+            label="Open shifts"
+            value={shiftSummary.open}
+          />
+          <SummaryCard
+            label="Cash mismatches"
+            value={shiftSummary.mismatch}
+            tone={shiftSummary.mismatch > 0 ? 'warning' : 'neutral'}
           />
         </section>
 
-        <section style={styles.mainGrid}>
-          <section style={styles.panel}>
-            <div style={styles.panelTitle}>Daily sales</div>
-            {salesData.daily.length === 0 ? (
-              <EmptyState
-                title={apiKey ? 'No synced sales yet' : 'Dashboard locked'}
-                message={
-                  apiKey
-                    ? 'Sales will appear here after the POS sync service uploads pending checkouts.'
-                    : 'Enter a valid admin API key to view daily totals.'
-                }
-              />
-            ) : (
-              <div style={styles.tableWrap}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={styles.headerCell}>Date</th>
-                      <th style={styles.headerCell}>Sales</th>
-                      <th style={styles.headerCell}>Revenue</th>
-                      <th style={styles.headerCell}>Cost</th>
-                      <th style={styles.headerCell}>Profit</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {salesData.daily.map((row) => (
-                      <tr key={row.date}>
-                        <td style={styles.cell}>{row.date}</td>
-                        <td style={styles.cell}>{row.salesCount}</td>
-                        <td style={styles.cell}>
-                          {formatCurrency(row.totalAmount)}
-                        </td>
-                        <td style={styles.cell}>{formatCurrency(row.totalCost)}</td>
-                        <td style={styles.cell}>{formatCurrency(row.profit)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+        <section style={styles.sectionTabs}>
+          {adminSections.map((section) => (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => setActiveSection(section.id)}
+              style={{
+                ...styles.sectionTab,
+                ...(activeSection === section.id ? styles.sectionTabActive : {})
+              }}
+            >
+              {section.label}
+            </button>
+          ))}
+        </section>
+
+        {activeSection === 'overview' ? (
+          <>
+            <section style={styles.mainGrid}>
+              <section style={styles.panel}>
+                <div style={styles.panelTitle}>Daily sales</div>
+                {salesData.daily.length === 0 ? (
+                  <EmptyState
+                    title={apiKey ? 'No synced sales yet' : 'Dashboard locked'}
+                    message={
+                      apiKey
+                        ? 'Sales will appear here after the POS sync service uploads pending checkouts.'
+                        : 'Enter a valid admin API key to view daily totals.'
+                    }
+                  />
+                ) : (
+                  <div style={styles.tableWrap}>
+                    <table style={styles.table}>
+                      <thead>
+                        <tr>
+                          <th style={styles.headerCell}>Date</th>
+                          <th style={styles.headerCell}>Sales</th>
+                          <th style={styles.headerCell}>Revenue</th>
+                          <th style={styles.headerCell}>Cost</th>
+                          <th style={styles.headerCell}>Profit</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {salesData.daily.map((row) => (
+                          <tr key={row.date}>
+                            <td style={styles.cell}>{row.date}</td>
+                            <td style={styles.cell}>{row.salesCount}</td>
+                            <td style={styles.cell}>
+                              {formatCurrency(row.totalAmount)}
+                            </td>
+                            <td style={styles.cell}>{formatCurrency(row.totalCost)}</td>
+                            <td style={styles.cell}>{formatCurrency(row.profit)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+
+              <section style={styles.sideColumn}>
+                <section style={styles.panel}>
+                  <div style={styles.panelTitle}>Top products</div>
+                  {salesData.topProducts.length === 0 ? (
+                    <EmptyState
+                      title="No top sellers yet"
+                      message="Top-selling products will appear once synced sales are available."
+                    />
+                  ) : (
+                    <div style={styles.listWrap}>
+                      {salesData.topProducts.map((product) => (
+                        <div key={product.productId} style={styles.listRow}>
+                          <div>
+                            <div style={styles.listTitle}>{product.productName}</div>
+                            <div style={styles.listMeta}>
+                              {product.quantitySold} sold
+                            </div>
+                          </div>
+                          <div style={styles.listAmount}>
+                            {formatCurrency(product.revenue)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <section style={styles.panel}>
+                  <div style={styles.panelTitle}>Inventory snapshot</div>
+                  {inventoryData.inventory.length === 0 ? (
+                    <EmptyState
+                      title="No synced inventory yet"
+                      message="Inventory levels will populate after at least one successful sync."
+                    />
+                  ) : (
+                    <div style={styles.listWrap}>
+                      {inventorySummary.lowStockProducts > 0 ? (
+                        <div style={styles.inventoryAlert}>
+                          {inventorySummary.lowStockProducts} item
+                          {inventorySummary.lowStockProducts === 1 ? '' : 's'} need
+                          restocking soon.
+                        </div>
+                      ) : null}
+                      {inventoryData.inventory.slice(0, 8).map((item) => {
+                        const stockAlertLevel = getStockAlertLevel(item.stock);
+
+                        return (
+                          <div
+                            key={`${item.storeId}-${item.productId}`}
+                            style={{
+                              ...styles.listRow,
+                              ...(stockAlertLevel === 'out'
+                                ? styles.listRowOut
+                                : stockAlertLevel === 'low'
+                                  ? styles.listRowLow
+                                  : {})
+                            }}
+                          >
+                            <div>
+                              <div style={styles.listTitle}>{item.name}</div>
+                              <div style={styles.listMeta}>
+                                {item.barcode || 'No barcode'}
+                              </div>
+                            </div>
+                            <div
+                              style={{
+                                ...styles.stockPill,
+                                ...(stockAlertLevel === 'out'
+                                  ? styles.stockPillOut
+                                  : stockAlertLevel === 'low'
+                                    ? styles.stockPillLow
+                                    : {})
+                              }}
+                            >
+                              {item.stock}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+              </section>
+            </section>
+
+            <ProductManager
+              apiKey={apiKey}
+              products={productsData.products || []}
+              serverTime={productsData.serverTime}
+              onRefreshRequested={() => loadDashboard(apiKey)}
+            />
+
+            <section style={styles.footerPanel}>
+              <div>
+                <div style={styles.footerTitle}>Catalog</div>
+                <div style={styles.footerMeta}>
+                  {productsData.products.length} product records synced for admin
+                  management
+                </div>
               </div>
-            )}
-          </section>
-
-          <section style={styles.sideColumn}>
-            <section style={styles.panel}>
-              <div style={styles.panelTitle}>Top products</div>
-              {salesData.topProducts.length === 0 ? (
-                <EmptyState
-                  title="No top sellers yet"
-                  message="Top-selling products will appear once synced sales are available."
-                />
-              ) : (
-                <div style={styles.listWrap}>
-                  {salesData.topProducts.map((product) => (
-                    <div key={product.productId} style={styles.listRow}>
-                      <div>
-                        <div style={styles.listTitle}>{product.productName}</div>
-                        <div style={styles.listMeta}>
-                          {product.quantitySold} sold
-                        </div>
-                      </div>
-                      <div style={styles.listAmount}>
-                        {formatCurrency(product.revenue)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <button
+                type="button"
+                style={styles.refreshButton}
+                onClick={() => loadDashboard(apiKey)}
+                disabled={!apiKey || isLoading}
+              >
+                {isLoading ? 'Refreshing...' : 'Refresh now'}
+              </button>
             </section>
-
-            <section style={styles.panel}>
-              <div style={styles.panelTitle}>Inventory snapshot</div>
-              {inventoryData.inventory.length === 0 ? (
-                <EmptyState
-                  title="No synced inventory yet"
-                  message="Inventory levels will populate after at least one successful sync."
-                />
-              ) : (
-                <div style={styles.listWrap}>
-                  {inventoryData.inventory.slice(0, 8).map((item) => (
-                    <div
-                      key={`${item.storeId}-${item.productId}`}
-                      style={styles.listRow}
-                    >
-                      <div>
-                        <div style={styles.listTitle}>{item.name}</div>
-                        <div style={styles.listMeta}>
-                          {item.barcode || 'No barcode'}
-                        </div>
-                      </div>
-                      <div style={styles.stockPill}>{item.stock}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </section>
-        </section>
-
-        <ProductManager
-          apiKey={apiKey}
-          products={productsData.products || []}
-          serverTime={productsData.serverTime}
-          onRefreshRequested={() => loadDashboard(apiKey)}
-        />
-
-        <section style={styles.footerPanel}>
-          <div>
-            <div style={styles.footerTitle}>Catalog</div>
-            <div style={styles.footerMeta}>
-              {productsData.products.length} product records synced for admin
-              management
-            </div>
-          </div>
-          <button
-            type="button"
-            style={styles.refreshButton}
-            onClick={() => loadDashboard(apiKey)}
-            disabled={!apiKey || isLoading}
-          >
-            {isLoading ? 'Refreshing...' : 'Refresh now'}
-          </button>
-        </section>
+          </>
+        ) : (
+          <Shifts
+            shifts={shiftsData.shifts || []}
+            lastSyncTime={shiftsData.lastSyncTime}
+            isLoading={isLoading}
+          />
+        )}
       </section>
     </main>
   );
@@ -490,7 +675,7 @@ const styles = {
   },
   statusPanelError: {
     backgroundColor: '#fef2f2',
-    borderColor: 'rgba(239, 68, 68, 0.18)'
+    border: '1px solid rgba(239, 68, 68, 0.18)'
   },
   statusLabel: {
     fontSize: '12px',
@@ -571,7 +756,7 @@ const styles = {
   },
   summaryGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
     gap: '16px'
   },
   card: {
@@ -582,12 +767,20 @@ const styles = {
     boxShadow: '0 8px 20px rgba(16, 24, 40, 0.05)'
   },
   cardPrimary: {
-    background: 'linear-gradient(135deg, #1f2937 0%, #0f172a 100%)',
+    backgroundColor: '#1f2937',
+    backgroundImage: 'linear-gradient(135deg, #1f2937 0%, #0f172a 100%)',
     color: '#f8fafc'
   },
   cardAccent: {
-    background: 'linear-gradient(135deg, #2457c5 0%, #2f6fed 100%)',
+    backgroundColor: '#2457c5',
+    backgroundImage: 'linear-gradient(135deg, #2457c5 0%, #2f6fed 100%)',
     color: '#f8fafc'
+  },
+  cardWarning: {
+    backgroundColor: '#fff7ed',
+    backgroundImage: 'linear-gradient(135deg, #fff7ed 0%, #ffe4e6 100%)',
+    border: '1px solid rgba(249, 115, 22, 0.18)',
+    color: '#9a3412'
   },
   cardLabel: {
     fontSize: '12px',
@@ -601,6 +794,28 @@ const styles = {
     fontSize: '30px',
     fontWeight: 800,
     lineHeight: 1.05
+  },
+  sectionTabs: {
+    display: 'flex',
+    gap: '10px',
+    flexWrap: 'wrap'
+  },
+  sectionTab: {
+    minHeight: '42px',
+    padding: '0 16px',
+    borderRadius: '999px',
+    border: '1px solid rgba(148, 163, 184, 0.22)',
+    backgroundColor: '#ffffff',
+    color: '#475467',
+    fontSize: '13px',
+    fontWeight: 800,
+    cursor: 'pointer'
+  },
+  sectionTabActive: {
+    backgroundColor: '#2457c5',
+    backgroundImage: 'linear-gradient(135deg, #2457c5 0%, #2f6fed 100%)',
+    color: '#ffffff',
+    border: '1px solid transparent'
   },
   mainGrid: {
     display: 'grid',
@@ -648,6 +863,15 @@ const styles = {
     display: 'grid',
     gap: '10px'
   },
+  inventoryAlert: {
+    padding: '12px 14px',
+    borderRadius: '14px',
+    background: 'linear-gradient(135deg, #fff7ed 0%, #ffe4e6 100%)',
+    border: '1px solid rgba(249, 115, 22, 0.18)',
+    fontSize: '13px',
+    fontWeight: 700,
+    color: '#9a3412'
+  },
   listRow: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -656,6 +880,12 @@ const styles = {
     padding: '12px 14px',
     borderRadius: '14px',
     backgroundColor: '#f8fafc'
+  },
+  listRowLow: {
+    backgroundColor: '#fff7ed'
+  },
+  listRowOut: {
+    backgroundColor: '#fff1f2'
   },
   listTitle: {
     fontSize: '14px',
@@ -679,6 +909,14 @@ const styles = {
     textAlign: 'center',
     fontWeight: 800,
     color: '#1f2937'
+  },
+  stockPillLow: {
+    backgroundColor: '#fed7aa',
+    color: '#9a3412'
+  },
+  stockPillOut: {
+    backgroundColor: '#fecdd3',
+    color: '#be123c'
   },
   footerPanel: {
     display: 'flex',

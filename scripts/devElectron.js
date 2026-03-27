@@ -1,5 +1,6 @@
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
+const { stopProjectElectronProcesses } = require('./devProcessUtils');
 
 const root = path.resolve(__dirname, '..');
 const waitOn = path.join(root, 'node_modules', 'wait-on', 'bin', 'wait-on');
@@ -20,6 +21,8 @@ if (wait.status !== 0) {
   process.exit(wait.status || 1);
 }
 
+stopProjectElectronProcesses(root);
+
 const child = spawn(electron, [root], {
   cwd: root,
   stdio: 'inherit'
@@ -28,4 +31,3 @@ const child = spawn(electron, [root], {
 child.on('exit', (code) => {
   process.exit(code ?? 0);
 });
-

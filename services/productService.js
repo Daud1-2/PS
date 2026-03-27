@@ -22,6 +22,77 @@ function parseTimestamp(value) {
   return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
 }
 
+function hasProvidedValue(value) {
+  return value !== null && value !== undefined && String(value).trim() !== '';
+}
+
+function normalizeNullableNumber(value) {
+  if (!hasProvidedValue(value)) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeInteger(value, fieldName, options = {}) {
+  const required = options.required !== false;
+  const fallback =
+    options.fallback !== undefined ? Number(options.fallback) : 0;
+
+  if (!hasProvidedValue(value)) {
+    if (required) {
+      throw new Error(`Valid product ${fieldName} is required.`);
+    }
+
+    if (!Number.isInteger(fallback) || fallback < 0) {
+      return 0;
+    }
+
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(String(value).trim(), 10);
+
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`Valid product ${fieldName} is required.`);
+  }
+
+  return parsed;
+}
+
+function normalizeMoney(value, fieldName, options = {}) {
+  const required = options.required !== false;
+
+  if (!hasProvidedValue(value)) {
+    if (required) {
+      throw new Error(`Valid product ${fieldName} is required.`);
+    }
+
+    return null;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Valid product ${fieldName} is required.`);
+  }
+
+  return parsed;
+}
+
+function areNullableNumbersEqual(left, right) {
+  if (left === null && right === null) {
+    return true;
+  }
+
+  return Number(left) === Number(right);
+}
+
+function isSellableProduct(product) {
+  return normalizeNullableNumber(product?.sellingPrice) !== null;
+}
+
 function mapProductRow(row) {
   if (!row) {
     return null;
@@ -35,9 +106,10 @@ function mapProductRow(row) {
         : Number(row.cloudProductId),
     name: row.name,
     barcode: row.barcode,
-    costPrice: Number(row.costPrice),
-    sellingPrice: Number(row.sellingPrice),
-    stock: Number(row.stock),
+    costPrice: normalizeNullableNumber(row.costPrice),
+    sellingPrice: normalizeNullableNumber(row.sellingPrice),
+    stock:
+      row.stock === null || row.stock === undefined ? 0 : Number(row.stock),
     createdSource: row.createdSource,
     catalogUpdatedAt: row.catalogUpdatedAt,
     stockUpdatedAt: row.stockUpdatedAt,
@@ -63,6 +135,11 @@ function selectProductFields() {
   `;
 }
 
+function activeProductsClause(alias = '') {
+  const prefix = alias ? `${alias}.` : '';
+  return `${prefix}archived_at IS NULL`;
+}
+
 function getProductByBarcode(barcode) {
   const normalizedBarcode = String(barcode || '').trim();
 
@@ -78,6 +155,7 @@ function getProductByBarcode(barcode) {
         `
           ${selectProductFields()}
           WHERE barcode = ?
+            AND ${activeProductsClause()}
           LIMIT 1
         `
       )
@@ -99,8 +177,11 @@ function searchProducts(query, limit = 8) {
     .prepare(
       `
         ${selectProductFields()}
-        WHERE barcode LIKE @barcodeContains
-           OR lower(name) LIKE @nameContains
+        WHERE ${activeProductsClause()}
+          AND (
+            barcode LIKE @barcodeContains
+            OR lower(name) LIKE @nameContains
+          )
         ORDER BY
           CASE
             WHEN barcode = @exactBarcode THEN 0
@@ -125,14 +206,75 @@ function searchProducts(query, limit = 8) {
     .map(mapProductRow);
 }
 
+function listProducts(query = '', limit = 5000) {
+  const normalizedQuery = String(query || '').trim();
+  const db = getDatabase();
+
+  if (!normalizedQuery) {
+    return db
+      .prepare(
+        `
+          ${selectProductFields()}
+          WHERE ${activeProductsClause()}
+          ORDER BY id ASC
+          LIMIT ?
+        `
+      )
+      .all(Number(limit))
+      .map(mapProductRow);
+  }
+
+  const loweredQuery = normalizedQuery.toLowerCase();
+
+  return db
+    .prepare(
+      `
+        ${selectProductFields()}
+        WHERE ${activeProductsClause()}
+          AND (
+            barcode LIKE @barcodeContains
+            OR lower(name) LIKE @nameContains
+          )
+        ORDER BY
+          CASE
+            WHEN barcode = @exactBarcode THEN 0
+            WHEN barcode LIKE @barcodePrefix THEN 1
+            WHEN lower(name) = @exactName THEN 2
+            WHEN lower(name) LIKE @namePrefix THEN 3
+            ELSE 4
+          END,
+          name COLLATE NOCASE ASC,
+          id DESC
+        LIMIT @limit
+      `
+    )
+    .all({
+      exactBarcode: normalizedQuery,
+      exactName: loweredQuery,
+      barcodePrefix: `${normalizedQuery}%`,
+      barcodeContains: `%${normalizedQuery}%`,
+      namePrefix: `${loweredQuery}%`,
+      nameContains: `%${loweredQuery}%`,
+      limit: Number(limit)
+    })
+    .map(mapProductRow);
+}
+
 function normalizeProductPayload(product, options = {}) {
   const now = new Date().toISOString();
   const payload = {
     name: String(product?.name || '').trim(),
     barcode: String(product?.barcode || '').trim(),
-    costPrice: Number(product?.costPrice),
-    sellingPrice: Number(product?.sellingPrice),
-    stock: Number.isFinite(Number(product?.stock)) ? Number(product.stock) : 0,
+    costPrice: normalizeMoney(product?.costPrice, 'cost price', {
+      required: options.requireCost !== false
+    }),
+    sellingPrice: normalizeMoney(product?.sellingPrice, 'selling price', {
+      required: options.requireSellingPrice !== false
+    }),
+    stock: normalizeInteger(product?.stock, 'stock', {
+      required: options.requireStock !== false,
+      fallback: options.defaultStock ?? 0
+    }),
     cloudProductId:
       product?.cloudProductId === null || product?.cloudProductId === undefined
         ? null
@@ -152,18 +294,6 @@ function normalizeProductPayload(product, options = {}) {
     throw new Error('Product barcode is required.');
   }
 
-  if (!Number.isFinite(payload.costPrice)) {
-    throw new Error('Valid product cost price is required.');
-  }
-
-  if (!Number.isFinite(payload.sellingPrice)) {
-    throw new Error('Valid product selling price is required.');
-  }
-
-  if (!Number.isInteger(payload.stock) || payload.stock < 0) {
-    throw new Error('Valid product stock is required.');
-  }
-
   if (
     payload.cloudProductId !== null &&
     (!Number.isInteger(payload.cloudProductId) || payload.cloudProductId <= 0)
@@ -178,38 +308,130 @@ function normalizeProductPayload(product, options = {}) {
   return payload;
 }
 
-function addProduct(product, options = {}) {
+function getActiveProductById(productId) {
   const db = getDatabase();
-  const payload = normalizeProductPayload(product, options);
 
-  const result = db
+  return db
     .prepare(
       `
-        INSERT INTO products (
-          cloud_product_id,
-          name,
-          barcode,
-          cost_price,
-          selling_price,
-          stock,
-          created_source,
-          catalog_updated_at,
-          stock_updated_at
-        )
-        VALUES (
-          @cloudProductId,
-          @name,
-          @barcode,
-          @costPrice,
-          @sellingPrice,
-          @stock,
-          @createdSource,
-          @catalogUpdatedAt,
-          @stockUpdatedAt
-        )
+        ${selectProductFields()}
+        WHERE id = ?
+          AND ${activeProductsClause()}
+        LIMIT 1
       `
     )
-    .run(payload);
+    .get(productId);
+}
+
+function persistProductUpdate(existingProduct, payload) {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  const hasCatalogChanges =
+    payload.name !== existingProduct.name ||
+    payload.barcode !== existingProduct.barcode ||
+    !areNullableNumbersEqual(payload.costPrice, existingProduct.costPrice) ||
+    !areNullableNumbersEqual(payload.sellingPrice, existingProduct.sellingPrice);
+  const hasStockChanges = Number(payload.stock) !== Number(existingProduct.stock);
+
+  const nextCatalogUpdatedAt = hasCatalogChanges
+    ? now
+    : existingProduct.catalogUpdatedAt;
+  const nextStockUpdatedAt = hasStockChanges ? now : existingProduct.stockUpdatedAt;
+
+  try {
+    db.prepare(
+      `
+        UPDATE products
+        SET cloud_product_id = @cloudProductId,
+            name = @name,
+            barcode = @barcode,
+            cost_price = @costPrice,
+            selling_price = @sellingPrice,
+            stock = @stock,
+            created_source = @createdSource,
+            catalog_updated_at = @catalogUpdatedAt,
+            stock_updated_at = @stockUpdatedAt
+        WHERE id = @id
+      `
+    ).run({
+      id: existingProduct.id,
+      cloudProductId: payload.cloudProductId,
+      name: payload.name,
+      barcode: payload.barcode,
+      costPrice: payload.costPrice,
+      sellingPrice: payload.sellingPrice,
+      stock: payload.stock,
+      createdSource: payload.createdSource || existingProduct.createdSource || 'pos',
+      catalogUpdatedAt: nextCatalogUpdatedAt,
+      stockUpdatedAt: nextStockUpdatedAt
+    });
+  } catch (error) {
+    if (String(error?.message || '').toLowerCase().includes('unique')) {
+      throw new Error('Barcode already exists.');
+    }
+
+    throw error;
+  }
+
+  return mapProductRow(
+    db
+      .prepare(
+        `
+          ${selectProductFields()}
+          WHERE id = ?
+          LIMIT 1
+        `
+      )
+      .get(existingProduct.id)
+  );
+}
+
+function addProduct(product, options = {}) {
+  const db = getDatabase();
+  const payload = normalizeProductPayload(product, {
+    ...options,
+    requireCost: true,
+    requireSellingPrice: true,
+    requireStock: true
+  });
+  let result;
+
+  try {
+    result = db
+      .prepare(
+        `
+          INSERT INTO products (
+            cloud_product_id,
+            name,
+            barcode,
+            cost_price,
+            selling_price,
+            stock,
+            created_source,
+            catalog_updated_at,
+            stock_updated_at
+          )
+          VALUES (
+            @cloudProductId,
+            @name,
+            @barcode,
+            @costPrice,
+            @sellingPrice,
+            @stock,
+            @createdSource,
+            @catalogUpdatedAt,
+            @stockUpdatedAt
+          )
+        `
+      )
+      .run(payload);
+  } catch (error) {
+    if (String(error?.message || '').toLowerCase().includes('unique')) {
+      throw new Error('Barcode already exists.');
+    }
+
+    throw error;
+  }
 
   return mapProductRow(
     db
@@ -223,6 +445,120 @@ function addProduct(product, options = {}) {
   );
 }
 
+function updateProduct(productId, product, options = {}) {
+  const normalizedProductId = Number(productId);
+
+  if (!Number.isInteger(normalizedProductId) || normalizedProductId <= 0) {
+    throw new Error('Product id is invalid.');
+  }
+
+  if (options.partial) {
+    return completeProduct(normalizedProductId, product, options);
+  }
+
+  const existingRow = getActiveProductById(normalizedProductId);
+
+  if (!existingRow) {
+    throw new Error('Product not found.');
+  }
+
+  const existingProduct = mapProductRow(existingRow);
+  const payload = normalizeProductPayload(
+    {
+      ...existingProduct,
+      ...product,
+      cloudProductId:
+        product?.cloudProductId !== undefined
+          ? product.cloudProductId
+          : existingProduct.cloudProductId,
+      createdSource:
+        product?.createdSource !== undefined
+          ? product.createdSource
+          : existingProduct.createdSource,
+      catalogUpdatedAt: existingProduct.catalogUpdatedAt,
+      stockUpdatedAt: existingProduct.stockUpdatedAt
+    },
+    {
+      ...options,
+      requireCost: true,
+      requireSellingPrice: true,
+      requireStock: true
+    }
+  );
+
+  return persistProductUpdate(existingProduct, payload);
+}
+
+function completeProduct(productId, product, options = {}) {
+  const normalizedProductId = Number(productId);
+
+  if (!Number.isInteger(normalizedProductId) || normalizedProductId <= 0) {
+    throw new Error('Product id is invalid.');
+  }
+
+  const existingRow = getActiveProductById(normalizedProductId);
+
+  if (!existingRow) {
+    throw new Error('Product not found.');
+  }
+
+  const existingProduct = mapProductRow(existingRow);
+  const payload = normalizeProductPayload(
+    {
+      ...existingProduct,
+      ...product,
+      cloudProductId:
+        product?.cloudProductId !== undefined
+          ? product.cloudProductId
+          : existingProduct.cloudProductId,
+      createdSource:
+        product?.createdSource !== undefined
+          ? product.createdSource
+          : existingProduct.createdSource,
+      catalogUpdatedAt: existingProduct.catalogUpdatedAt,
+      stockUpdatedAt: existingProduct.stockUpdatedAt
+    },
+    {
+      ...options,
+      requireCost: false,
+      requireSellingPrice: true,
+      requireStock: true
+    }
+  );
+
+  return persistProductUpdate(existingProduct, payload);
+}
+
+function deleteProduct(productId) {
+  const normalizedProductId = Number(productId);
+
+  if (!Number.isInteger(normalizedProductId) || normalizedProductId <= 0) {
+    throw new Error('Product id is invalid.');
+  }
+
+  const db = getDatabase();
+  const existingRow = getActiveProductById(normalizedProductId);
+
+  if (!existingRow) {
+    throw new Error('Product not found.');
+  }
+
+  const existingProduct = mapProductRow(existingRow);
+
+  db.prepare(
+    `
+      UPDATE products
+      SET archived_at = @archivedAt
+      WHERE id = @id
+    `
+  ).run({
+    archivedAt: new Date().toISOString(),
+    id: normalizedProductId
+  });
+
+  return existingProduct;
+}
+
 function getProductsForSync(limit = 500) {
   const db = getDatabase();
 
@@ -231,28 +567,27 @@ function getProductsForSync(limit = 500) {
       `
         ${selectProductFields()}
         WHERE cloud_product_id IS NULL
+          AND ${activeProductsClause()}
         ORDER BY catalog_updated_at DESC, stock_updated_at DESC, id DESC
         LIMIT ?
       `
     )
     .all(Number(limit))
-    .map((row) => {
-      const product = mapProductRow(row);
-
-      return {
-        localProductId: product.id,
-        cloudProductId: product.cloudProductId,
-        storeId: getDefaultStoreId(),
-        name: product.name,
-        barcode: product.barcode,
-        costPrice: product.costPrice,
-        sellingPrice: product.sellingPrice,
-        stock: product.stock,
-        createdSource: product.createdSource,
-        catalogUpdatedAt: product.catalogUpdatedAt,
-        stockUpdatedAt: product.stockUpdatedAt
-      };
-    });
+    .map(mapProductRow)
+    .filter(isSellableProduct)
+    .map((product) => ({
+      localProductId: product.id,
+      cloudProductId: product.cloudProductId,
+      storeId: getDefaultStoreId(),
+      name: product.name,
+      barcode: product.barcode,
+      costPrice: product.costPrice ?? 0,
+      sellingPrice: product.sellingPrice,
+      stock: product.stock,
+      createdSource: product.createdSource,
+      catalogUpdatedAt: product.catalogUpdatedAt,
+      stockUpdatedAt: product.stockUpdatedAt
+    }));
 }
 
 function applyCloudProducts(products) {
@@ -312,7 +647,7 @@ function applyCloudProducts(products) {
       )
     `
   );
-  const updateProduct = db.prepare(
+  const updateProductStatement = db.prepare(
     `
       UPDATE products
       SET cloud_product_id = @cloudProductId,
@@ -342,7 +677,10 @@ function applyCloudProducts(products) {
               cloudProduct?.cloudProductId ?? cloudProduct?.id ?? null
           },
           {
-            createdSource: cloudProduct?.createdSource || 'admin'
+            createdSource: cloudProduct?.createdSource || 'admin',
+            requireCost: false,
+            requireSellingPrice: true,
+            requireStock: true
           }
         );
 
@@ -401,14 +739,14 @@ function applyCloudProducts(products) {
             ? normalized.stock
             : existingProduct.stock;
 
-        updateProduct.run({
+        updateProductStatement.run({
           id: existingProduct.id,
           cloudProductId:
             normalized.cloudProductId || existingProduct.cloudProductId || null,
           name: nextCatalogValues.name,
           barcode: nextCatalogValues.barcode,
-          costPrice: Number(nextCatalogValues.costPrice),
-          sellingPrice: Number(nextCatalogValues.sellingPrice),
+          costPrice: nextCatalogValues.costPrice,
+          sellingPrice: nextCatalogValues.sellingPrice,
           stock: Number(nextStock),
           createdSource:
             existingProduct.createdSource || normalized.createdSource || 'pos',
@@ -435,7 +773,11 @@ module.exports = {
   DEFAULT_STORE_ID: getDefaultStoreId,
   getProductByBarcode,
   searchProducts,
+  listProducts,
   addProduct,
+  updateProduct,
+  completeProduct,
+  deleteProduct,
   getProductsForSync,
   applyCloudProducts
 };

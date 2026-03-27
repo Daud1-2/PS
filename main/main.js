@@ -14,7 +14,10 @@ const {
 const {
   saveCartState,
   loadCartState,
-  clearCartState
+  clearCartState,
+  saveHeldSaleState,
+  loadHeldSaleState,
+  clearHeldSaleState
 } = require('./cartStateService');
 const {
   startSyncService,
@@ -23,15 +26,26 @@ const {
 } = require('./syncService');
 const {
   getProductByBarcode,
-  searchProducts
+  searchProducts,
+  listProducts,
+  addProduct,
+  updateProduct,
+  deleteProduct
 } = require('../services/productService');
 const { createSale } = require('../services/saleService');
+const {
+  getOpenShift,
+  getClosingSummary,
+  startShift,
+  closeShift
+} = require('../services/shiftService');
 
 loadEnv();
 
 const DEV_SERVER_URL = 'http://127.0.0.1:5173';
 let appConfig = getAppConfig();
 let mainWindow;
+let ipcHandlersRegistered = false;
 
 function isIgnorableMainProcessError(error) {
   return error?.code === 'EPIPE';
@@ -58,7 +72,7 @@ process.on('unhandledRejection', (reason) => {
 });
 
 function formatCurrency(value) {
-  return `$${Number(value).toFixed(2)}`;
+  return `PKR ${Number(value).toFixed(2)}`;
 }
 
 function getAppIconPath() {
@@ -208,41 +222,179 @@ async function printReceipt(receipt) {
   }
 }
 
+async function printSilentlyWithHiddenWindow({
+  printerName,
+  html = '<!doctype html><html><body style="margin:0;font-size:1px;color:#fff;">.</body></html>',
+  pageSize = { width: 302000, height: 12000 }
+}) {
+  const printWindow = new BrowserWindow({
+    show: false,
+    frame: false,
+    transparent: true,
+    skipTaskbar: true,
+    focusable: false,
+    movable: false,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    webPreferences: {
+      sandbox: false,
+      devTools: false
+    }
+  });
+
+  try {
+    await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+    await new Promise((resolve, reject) => {
+      printWindow.webContents.print(
+        {
+          silent: true,
+          printBackground: false,
+          deviceName: printerName,
+          copies: 1,
+          pageSize
+        },
+        (success, failureReason) => {
+          if (!success) {
+            reject(
+              new Error(
+                failureReason || 'The print job for the cash drawer did not complete.'
+              )
+            );
+            return;
+          }
+
+          resolve();
+        }
+      );
+    });
+  } finally {
+    if (!printWindow.isDestroyed()) {
+      printWindow.close();
+    }
+  }
+}
+
+async function openCashDrawer() {
+  const activeWindow =
+    mainWindow && !mainWindow.isDestroyed()
+      ? mainWindow
+      : BrowserWindow.getAllWindows()[0];
+
+  if (!activeWindow) {
+    throw new Error('Unable to access a printer window context.');
+  }
+
+  const printers = await activeWindow.webContents.getPrintersAsync();
+
+  if (!Array.isArray(printers) || printers.length === 0) {
+    throw new Error(
+      'No printer connected. Connect the receipt printer before opening the drawer.'
+    );
+  }
+
+  const selectedPrinter =
+    printers.find((printer) => printer.isDefault) || printers[0];
+
+  try {
+    await printSilentlyWithHiddenWindow({
+      printerName: selectedPrinter.name
+    });
+
+    return { opened: true };
+  } catch (error) {
+    logError('Cash drawer open failed.', error);
+    throw new Error(
+      'Unable to open the cash drawer. Check the receipt printer connection and drawer cable.'
+    );
+  }
+}
+
 function registerIpcHandlers() {
-  ipcMain.handle('products:get-by-barcode', async (_event, barcode) => {
-    return getProductByBarcode(barcode);
-  });
+  if (ipcHandlersRegistered) {
+    return;
+  }
 
-  ipcMain.handle('products:search', async (_event, query) => {
-    return searchProducts(query);
-  });
+  const handlers = {
+    'products:get-by-barcode': async (_event, barcode) => {
+      return getProductByBarcode(barcode);
+    },
+    'products:search': async (_event, query) => {
+      return searchProducts(query);
+    },
+    'products:list': async (_event, query) => {
+      return listProducts(query);
+    },
+    'products:add': async (_event, product) => {
+      return addProduct(product, {
+        createdSource: 'pos'
+      });
+    },
+    'products:update': async (_event, productId, product, options = {}) => {
+      return updateProduct(productId, product, {
+        createdSource: 'pos',
+        ...options
+      });
+    },
+    'products:delete': async (_event, productId) => {
+      return deleteProduct(productId);
+    },
+    'shift:get-open': async () => {
+      return getOpenShift();
+    },
+    'shift:start': async (_event, openingCash) => {
+      return startShift(openingCash);
+    },
+    'shift:get-closing-summary': async (_event, shiftId) => {
+      return getClosingSummary(shiftId);
+    },
+    'shift:close': async (_event, actualCash) => {
+      return closeShift(actualCash);
+    },
+    'sales:checkout': async (_event, cartItems) => {
+      return createSale(cartItems);
+    },
+    'printer:print-receipt': async (_event, receipt) => {
+      return printReceipt(receipt);
+    },
+    'printer:open-cash-drawer': async () => {
+      return openCashDrawer();
+    },
+    'backup:create': async () => {
+      return createManualBackup();
+    },
+    'cart-state:save': async (_event, state) => {
+      return saveCartState(state);
+    },
+    'cart-state:load': async () => {
+      return loadCartState();
+    },
+    'cart-state:clear': async () => {
+      return clearCartState();
+    },
+    'held-sale-state:save': async (_event, state) => {
+      return saveHeldSaleState(state);
+    },
+    'held-sale-state:load': async () => {
+      return loadHeldSaleState();
+    },
+    'held-sale-state:clear': async () => {
+      return clearHeldSaleState();
+    },
+    'sync:refresh-products': async () => {
+      return runProductSyncNow();
+    }
+  };
 
-  ipcMain.handle('sales:checkout', async (_event, cartItems) => {
-    return createSale(cartItems);
-  });
+  for (const [channel, handler] of Object.entries(handlers)) {
+    ipcMain.removeHandler(channel);
+    ipcMain.handle(channel, handler);
+  }
 
-  ipcMain.handle('printer:print-receipt', async (_event, receipt) => {
-    return printReceipt(receipt);
-  });
-
-  ipcMain.handle('backup:create', async () => {
-    return createManualBackup();
-  });
-
-  ipcMain.handle('cart-state:save', async (_event, state) => {
-    return saveCartState(state);
-  });
-
-  ipcMain.handle('cart-state:load', async () => {
-    return loadCartState();
-  });
-
-  ipcMain.handle('cart-state:clear', async () => {
-    return clearCartState();
-  });
-
-  ipcMain.handle('sync:refresh-products', async () => {
-    return runProductSyncNow();
+  ipcHandlersRegistered = true;
+  logInfo('IPC handlers registered.', {
+    channels: Object.keys(handlers)
   });
 }
 

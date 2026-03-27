@@ -1,4 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import {
+  getStockAlertLabel,
+  getStockAlertLevel,
+  hasVeryLowStock
+} from '../shared/stockAlerts.js';
 
 const adminConfig = window.__ADMIN_CONFIG__ || {};
 
@@ -66,6 +71,12 @@ export default function ProductManager({
       })
     );
   }, [products]);
+
+  const lowStockCount = useMemo(() => {
+    return visibleProducts.filter((product) =>
+      hasVeryLowStock(drafts[product.id]?.stock ?? product.stock)
+    ).length;
+  }, [drafts, visibleProducts]);
 
   async function requestJson(pathname, options = {}) {
     const response = await fetch(createApiUrl(pathname), {
@@ -193,6 +204,37 @@ export default function ProductManager({
     }
   }
 
+  async function handleDelete(productId) {
+    if (!apiKey || isSaving) {
+      return;
+    }
+
+    const draft = drafts[productId];
+    const productName = String(draft?.name || '').trim() || `product #${productId}`;
+    const confirmed = window.confirm(`Delete ${productName}? This cannot be undone.`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      await requestJson(`/products/${productId}`, {
+        method: 'DELETE'
+      });
+      setStatusMessage(`Deleted ${productName}`);
+      setStatusTone('success');
+      await onRefreshRequested?.();
+    } catch (error) {
+      console.error('Product delete failed:', error);
+      setStatusMessage(error.message || 'Unable to delete product');
+      setStatusTone('error');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
     <section style={styles.panel}>
       <header style={styles.header}>
@@ -259,6 +301,19 @@ export default function ProductManager({
         </button>
       </form>
 
+      {lowStockCount > 0 ? (
+        <section style={styles.lowStockBanner}>
+          <div style={styles.lowStockBannerLabel}>Inventory alert</div>
+          <div style={styles.lowStockBannerTitle}>
+            {lowStockCount} product{lowStockCount === 1 ? '' : 's'}{' '}
+            {lowStockCount === 1 ? 'needs' : 'need'} restocking soon.
+          </div>
+          <div style={styles.lowStockBannerText}>
+            Rows marked below are very low or already out of stock.
+          </div>
+        </section>
+      ) : null}
+
       <div style={styles.tableWrap}>
         <table style={styles.table}>
           <thead>
@@ -268,24 +323,48 @@ export default function ProductManager({
               <th style={styles.headerCell}>Cost</th>
               <th style={styles.headerCell}>Sell</th>
               <th style={styles.headerCell}>Stock</th>
-              <th style={styles.headerCell}>Save</th>
+              <th style={styles.headerCell}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {visibleProducts.map((product) => {
               const draft = drafts[product.id] || createDraft(product);
+              const stockAlertLevel = getStockAlertLevel(draft.stock);
 
               return (
-                <tr key={product.id}>
+                <tr
+                  key={product.id}
+                  style={
+                    stockAlertLevel === 'out'
+                      ? styles.outOfStockRow
+                      : stockAlertLevel === 'low'
+                        ? styles.lowStockRow
+                        : undefined
+                  }
+                >
                   <td style={styles.cell}>
-                    <input
-                      type="text"
-                      value={draft.name}
-                      onChange={(event) =>
-                        updateDraft(product.id, 'name', event.target.value)
-                      }
-                      style={styles.tableInput}
-                    />
+                    <div style={styles.nameCell}>
+                      <input
+                        type="text"
+                        value={draft.name}
+                        onChange={(event) =>
+                          updateDraft(product.id, 'name', event.target.value)
+                        }
+                        style={styles.tableInput}
+                      />
+                      {stockAlertLevel !== 'normal' ? (
+                        <span
+                          style={{
+                            ...styles.stockTag,
+                            ...(stockAlertLevel === 'out'
+                              ? styles.stockTagOut
+                              : styles.stockTagLow)
+                          }}
+                        >
+                          {getStockAlertLabel(draft.stock)}
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                   <td style={styles.cell}>
                     <input
@@ -320,25 +399,49 @@ export default function ProductManager({
                     />
                   </td>
                   <td style={styles.cell}>
-                    <input
-                      type="number"
-                      step="1"
-                      value={draft.stock}
-                      onChange={(event) =>
-                        updateDraft(product.id, 'stock', event.target.value)
-                      }
-                      style={styles.tableInput}
-                    />
+                    <div style={styles.stockEditor}>
+                      <input
+                        type="number"
+                        step="1"
+                        value={draft.stock}
+                        onChange={(event) =>
+                          updateDraft(product.id, 'stock', event.target.value)
+                        }
+                        style={{
+                          ...styles.tableInput,
+                          ...(stockAlertLevel === 'out'
+                            ? styles.tableInputOut
+                            : stockAlertLevel === 'low'
+                              ? styles.tableInputLow
+                              : {})
+                        }}
+                      />
+                      {stockAlertLevel !== 'normal' ? (
+                        <span style={styles.stockHelpText}>
+                          Reorder before it runs out.
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                   <td style={styles.cell}>
-                    <button
-                      type="button"
-                      style={styles.secondaryButton}
-                      onClick={() => handleSave(product.id)}
-                      disabled={!apiKey || isSaving}
-                    >
-                      Save
-                    </button>
+                    <div style={styles.actionsCell}>
+                      <button
+                        type="button"
+                        style={styles.secondaryButton}
+                        onClick={() => handleSave(product.id)}
+                        disabled={!apiKey || isSaving}
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.dangerButton}
+                        onClick={() => handleDelete(product.id)}
+                        disabled={!apiKey || isSaving}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -398,6 +501,32 @@ const styles = {
     gap: '12px',
     marginTop: '18px'
   },
+  lowStockBanner: {
+    marginTop: '18px',
+    padding: '16px 18px',
+    borderRadius: '16px',
+    background: 'linear-gradient(135deg, #fff7ed 0%, #ffe4e6 100%)',
+    border: '1px solid rgba(249, 115, 22, 0.18)'
+  },
+  lowStockBannerLabel: {
+    fontSize: '11px',
+    fontWeight: 800,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    color: '#c2410c'
+  },
+  lowStockBannerTitle: {
+    marginTop: '6px',
+    fontSize: '18px',
+    fontWeight: 800,
+    color: '#7c2d12'
+  },
+  lowStockBannerText: {
+    marginTop: '4px',
+    fontSize: '13px',
+    lineHeight: 1.5,
+    color: '#9a3412'
+  },
   input: {
     minHeight: '44px',
     padding: '10px 12px',
@@ -429,6 +558,17 @@ const styles = {
     fontWeight: 700,
     cursor: 'pointer'
   },
+  dangerButton: {
+    minHeight: '40px',
+    padding: '0 14px',
+    borderRadius: '10px',
+    border: '1px solid rgba(239, 68, 68, 0.18)',
+    backgroundColor: '#fef2f2',
+    color: '#b42318',
+    fontSize: '13px',
+    fontWeight: 700,
+    cursor: 'pointer'
+  },
   tableWrap: {
     marginTop: '18px',
     overflowX: 'auto'
@@ -451,6 +591,21 @@ const styles = {
     padding: '12px 10px',
     borderBottom: '1px solid rgba(16, 24, 40, 0.06)'
   },
+  lowStockRow: {
+    backgroundColor: '#fff7ed'
+  },
+  outOfStockRow: {
+    backgroundColor: '#fff1f2'
+  },
+  nameCell: {
+    display: 'grid',
+    gap: '8px'
+  },
+  actionsCell: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px'
+  },
   tableInput: {
     width: '100%',
     minHeight: '40px',
@@ -461,5 +616,40 @@ const styles = {
     fontSize: '14px',
     color: '#111827',
     boxSizing: 'border-box'
+  },
+  tableInputLow: {
+    borderColor: 'rgba(249, 115, 22, 0.45)',
+    backgroundColor: '#fff7ed'
+  },
+  tableInputOut: {
+    borderColor: 'rgba(244, 63, 94, 0.45)',
+    backgroundColor: '#fff1f2'
+  },
+  stockEditor: {
+    display: 'grid',
+    gap: '6px'
+  },
+  stockTag: {
+    display: 'inline-flex',
+    width: 'fit-content',
+    padding: '4px 10px',
+    borderRadius: '999px',
+    fontSize: '11px',
+    fontWeight: 800,
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase'
+  },
+  stockTagLow: {
+    backgroundColor: '#ffedd5',
+    color: '#c2410c'
+  },
+  stockTagOut: {
+    backgroundColor: '#ffe4e6',
+    color: '#be123c'
+  },
+  stockHelpText: {
+    fontSize: '12px',
+    fontWeight: 700,
+    color: '#b45309'
   }
 };

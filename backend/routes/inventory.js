@@ -2,7 +2,9 @@ const express = require('express');
 const { query } = require('../db');
 
 const router = express.Router();
-const DEFAULT_STORE_ID = process.env.DEFAULT_STORE_ID || 'default-store';
+const DEFAULT_STORE_ID =
+  String(process.env.DEFAULT_STORE_ID || process.env.STORE_ID || 'default-store').trim() ||
+  'default-store';
 
 router.get('/inventory', async (_req, res, next) => {
   try {

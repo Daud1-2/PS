@@ -9,6 +9,7 @@ loadEnv();
 const salesRoutes = require('./routes/sales');
 const inventoryRoutes = require('./routes/inventory');
 const productsRoutes = require('./routes/products');
+const shiftsRoutes = require('./routes/shifts');
 const { ensureCloudSchema, hasDatabaseConfig } = require('./db');
 const { requireApiKey } = require('./middleware/auth');
 
@@ -18,7 +19,7 @@ const port = Number(process.env.BACKEND_PORT) || 4000;
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 
-const protectedPrefixes = ['/sync', '/sales', '/inventory', '/products'];
+const protectedPrefixes = ['/sync', '/sales', '/inventory', '/products', '/shifts'];
 
 app.get('/health', (_req, res) => {
   res.json({
@@ -48,6 +49,7 @@ app.use((req, res, next) => {
 app.use(salesRoutes);
 app.use(inventoryRoutes);
 app.use(productsRoutes);
+app.use(shiftsRoutes);
 
 function buildAdminHtml() {
   const adminConfig = {

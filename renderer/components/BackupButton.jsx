@@ -4,8 +4,11 @@ export default function BackupButton({
   disabled,
   isBackingUp,
   onBackup,
-  backupStatus
+  backupStatus,
+  tone = 'light'
 }) {
+  const isDark = tone === 'dark';
+
   return (
     <div style={styles.wrapper}>
       <button
@@ -14,6 +17,7 @@ export default function BackupButton({
         disabled={disabled || isBackingUp}
         style={{
           ...styles.button,
+          ...(isDark ? styles.buttonDark : {}),
           ...(disabled || isBackingUp ? styles.disabled : {})
         }}
       >
@@ -22,6 +26,7 @@ export default function BackupButton({
       <span
         style={{
           ...styles.status,
+          ...(isDark ? styles.statusDark : {}),
           ...(backupStatus === 'success' ? styles.statusSuccess : {}),
           ...(backupStatus === 'error' ? styles.statusError : {})
         }}
@@ -40,7 +45,8 @@ const styles = {
   wrapper: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px'
+    gap: '10px',
+    flexWrap: 'wrap'
   },
   button: {
     minHeight: '40px',
@@ -52,6 +58,11 @@ const styles = {
     fontSize: '13px',
     fontWeight: 700,
     cursor: 'pointer'
+  },
+  buttonDark: {
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    color: '#f5f1e8'
   },
   disabled: {
     opacity: 0.55,
@@ -66,6 +77,10 @@ const styles = {
     fontWeight: 700,
     letterSpacing: '0.06em',
     textTransform: 'uppercase'
+  },
+  statusDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    color: '#d7e3dc'
   },
   statusSuccess: {
     backgroundColor: '#ecfdf3',

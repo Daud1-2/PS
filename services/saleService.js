@@ -1,5 +1,6 @@
 const { getDatabase } = require('../database/db');
 const { getAppConfig } = require('../config/appConfig');
+const { getOpenShiftRecord, ShiftError } = require('./shiftService');
 
 function getDefaultStoreId() {
   return getAppConfig().storeId;
@@ -68,12 +69,13 @@ function createSale(cartItems) {
   const insertSale = db.prepare(`
     INSERT INTO sales (
       store_id,
+      shift_id,
       total_amount,
       total_cost,
       created_at,
       sync_status
     )
-    VALUES (@storeId, @totalAmount, @totalCost, @createdAt, 'pending')
+    VALUES (@storeId, @shiftId, @totalAmount, @totalCost, @createdAt, 'pending')
   `);
 
   const insertSaleItem = db.prepare(`
@@ -94,6 +96,7 @@ function createSale(cartItems) {
       store_id AS storeId,
       total_amount AS totalAmount,
       total_cost AS totalCost,
+      shift_id AS shiftId,
       created_at AS createdAt,
       sync_status AS syncStatus,
       synced_at AS syncedAt
@@ -102,12 +105,27 @@ function createSale(cartItems) {
   `);
 
   const checkoutTransaction = db.transaction((items) => {
+    const openShift = getOpenShiftRecord(db);
+
+    if (!openShift) {
+      throw new ShiftError('Start a shift before checkout.');
+    }
+
     const stockUpdatedAt = new Date().toISOString();
     const saleLines = items.map((item) => {
       const product = selectProduct.get(item.product_id);
 
       if (!product) {
         throw new CheckoutError(`Product ${item.product_id} no longer exists.`);
+      }
+
+      const sellingPrice = Number(product.sellingPrice);
+      const costPrice = Number.isFinite(Number(product.costPrice))
+        ? Number(product.costPrice)
+        : 0;
+
+      if (!Number.isFinite(sellingPrice)) {
+        throw new CheckoutError(`${product.name} needs a selling price before checkout.`);
       }
 
       if (product.stock < item.quantity) {
@@ -125,10 +143,10 @@ function createSale(cartItems) {
         name: product.name,
         barcode: product.barcode,
         quantity: item.quantity,
-        price: Number(product.sellingPrice),
-        costPrice: Number(product.costPrice),
+        price: sellingPrice,
+        costPrice,
         stockAfterSale: Number(product.stock) - item.quantity,
-        total: Number(product.sellingPrice) * item.quantity,
+        total: sellingPrice * item.quantity,
         catalogUpdatedAt: product.catalogUpdatedAt,
         stockUpdatedAt,
         createdSource: product.createdSource
@@ -148,6 +166,7 @@ function createSale(cartItems) {
     const appConfig = getAppConfig();
     const saleInsertResult = insertSale.run({
       storeId: getDefaultStoreId(),
+      shiftId: Number(openShift.id),
       totalAmount: totals.totalAmount,
       totalCost: totals.totalCost,
       createdAt
@@ -191,6 +210,7 @@ function createSale(cartItems) {
         saleId: Number(sale.id),
         posSaleId: Number(sale.id),
         storeId: sale.storeId,
+        shiftId: sale.shiftId === null ? null : Number(sale.shiftId),
         totalAmount: Number(sale.totalAmount),
         totalCost: Number(sale.totalCost),
         createdAt: sale.createdAt,
@@ -234,6 +254,7 @@ function getPendingSalesForSync(limit = 25) {
       SELECT
         id,
         store_id AS storeId,
+        shift_id AS shiftId,
         total_amount AS totalAmount,
         total_cost AS totalCost,
         created_at AS createdAt,
@@ -298,6 +319,7 @@ function getPendingSalesForSync(limit = 25) {
         saleId: Number(sale.id),
         posSaleId: Number(sale.id),
         storeId: sale.storeId,
+        shiftId: sale.shiftId === null ? null : Number(sale.shiftId),
         totalAmount: Number(sale.totalAmount),
         totalCost: Number(sale.totalCost),
         createdAt: sale.createdAt,

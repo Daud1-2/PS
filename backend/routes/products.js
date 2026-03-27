@@ -2,7 +2,9 @@ const express = require('express');
 const { query, withTransaction } = require('../db');
 
 const router = express.Router();
-const DEFAULT_STORE_ID = process.env.DEFAULT_STORE_ID || 'default-store';
+const DEFAULT_STORE_ID =
+  String(process.env.DEFAULT_STORE_ID || process.env.STORE_ID || 'default-store').trim() ||
+  'default-store';
 
 function parseTimestamp(value, fallback = new Date().toISOString()) {
   const parsed = new Date(value || '');
@@ -56,8 +58,15 @@ function mapProductRowQuery() {
 }
 
 function normalizeProductInput(input) {
+  const requestedStoreId =
+    String(input?.storeId || DEFAULT_STORE_ID).trim() || DEFAULT_STORE_ID;
+
+  if (requestedStoreId !== DEFAULT_STORE_ID) {
+    throw new Error('Product store id does not match the configured store.');
+  }
+
   const payload = {
-    storeId: String(input?.storeId || DEFAULT_STORE_ID).trim() || DEFAULT_STORE_ID,
+    storeId: DEFAULT_STORE_ID,
     name: String(input?.name || '').trim(),
     barcode: String(input?.barcode || '').trim(),
     costPrice: Number(input?.costPrice),
@@ -509,6 +518,51 @@ router.put('/products/:id', async (req, res, next) => {
       return;
     }
 
+    next(error);
+  }
+});
+
+router.delete('/products/:id', async (req, res, next) => {
+  try {
+    const productId = Number(req.params.id);
+
+    if (!Number.isInteger(productId) || productId <= 0) {
+      res.status(400).json({
+        error: 'Invalid product id.'
+      });
+      return;
+    }
+
+    const existingResult = await query(
+      `
+        ${mapProductRowQuery()}
+        WHERE id = $1 AND store_id = $2
+        LIMIT 1
+      `,
+      [productId, DEFAULT_STORE_ID]
+    );
+
+    if (!existingResult.rows[0]) {
+      res.status(404).json({
+        error: 'Product not found.'
+      });
+      return;
+    }
+
+    await query(
+      `
+        DELETE FROM products
+        WHERE id = $1 AND store_id = $2
+      `,
+      [productId, DEFAULT_STORE_ID]
+    );
+
+    res.json({
+      deleted: true,
+      product: serializeProduct(existingResult.rows[0]),
+      serverTime: new Date().toISOString()
+    });
+  } catch (error) {
     next(error);
   }
 });

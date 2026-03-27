@@ -61,12 +61,29 @@ async function ensureCloudSchema() {
       id BIGSERIAL PRIMARY KEY,
       store_id TEXT NOT NULL,
       pos_sale_id BIGINT NOT NULL,
+      shift_id BIGINT NULL,
       total_amount NUMERIC(12, 2) NOT NULL,
       total_cost NUMERIC(12, 2) NOT NULL,
       created_at TIMESTAMPTZ NOT NULL,
       received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       sync_status TEXT NOT NULL DEFAULT 'synced',
       UNIQUE (store_id, pos_sale_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS shifts (
+      id BIGSERIAL PRIMARY KEY,
+      store_id TEXT NOT NULL,
+      pos_shift_id BIGINT NOT NULL,
+      start_time TIMESTAMPTZ NOT NULL,
+      end_time TIMESTAMPTZ NULL,
+      opening_cash NUMERIC(12, 2) NOT NULL,
+      closing_cash NUMERIC(12, 2) NULL,
+      total_sales NUMERIC(12, 2) NOT NULL DEFAULT 0,
+      expected_cash NUMERIC(12, 2) NOT NULL DEFAULT 0,
+      difference NUMERIC(12, 2) NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'open',
+      received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (store_id, pos_shift_id)
     );
 
     CREATE TABLE IF NOT EXISTS sale_items (
@@ -157,10 +174,27 @@ async function ensureCloudSchema() {
     ALTER TABLE products
     ALTER COLUMN product_id DROP NOT NULL;
 
+    ALTER TABLE sale_items
+    ALTER COLUMN product_id DROP NOT NULL;
+
+    ALTER TABLE sales
+    ADD COLUMN IF NOT EXISTS shift_id BIGINT NULL;
+
     ALTER TABLE products
     ADD CONSTRAINT products_pkey PRIMARY KEY (id);
 
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_created_at
+    CREATE INDEX IF NOT EXISTS idx_sales_shift_id
+    ON sales(shift_id);
+
+    CREATE INDEX IF NOT EXISTS idx_sales_store_created_at
+    ON sales(store_id, created_at DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_shifts_store_start_time
+    ON shifts(store_id, start_time DESC);
+
+    DROP INDEX IF EXISTS idx_sales_created_at;
+
+    CREATE INDEX IF NOT EXISTS idx_sales_created_at
     ON sales(created_at DESC);
 
     CREATE UNIQUE INDEX IF NOT EXISTS idx_products_store_barcode_unique

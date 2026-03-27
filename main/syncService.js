@@ -6,10 +6,17 @@ const {
   getPendingSalesForSync,
   markSaleSynced
 } = require('../services/saleService');
+const { getShiftsForSync } = require('../services/shiftService');
 const {
   getProductsForSync,
   applyCloudProducts
 } = require('../services/productService');
+
+const INSECURE_API_KEYS = new Set([
+  '',
+  'change-me-before-production',
+  'dev-api-key-change-me'
+]);
 
 const DEFAULT_SALES_INTERVAL_MS = 15000;
 const DEFAULT_PRODUCT_INTERVAL_MS = 180000;
@@ -89,9 +96,11 @@ function persistSyncState() {
 }
 
 function getConfig() {
+  const apiKey = String(process.env.ADMIN_API_KEY || '').trim();
+
   return {
     apiBaseUrl: String(process.env.BACKEND_API_URL || '').trim(),
-    apiKey: String(process.env.ADMIN_API_KEY || '').trim(),
+    apiKey: INSECURE_API_KEYS.has(apiKey) ? '' : apiKey,
     salesIntervalMs:
       Number(process.env.SYNC_INTERVAL_MS) || DEFAULT_SALES_INTERVAL_MS,
     productIntervalMs:
@@ -176,6 +185,36 @@ async function uploadPendingSales(apiBaseUrl, apiKey) {
   return syncedSales.length;
 }
 
+async function uploadShifts(apiBaseUrl, apiKey) {
+  const shifts = getShiftsForSync(250);
+
+  if (shifts.length === 0) {
+    return 0;
+  }
+
+  const response = await fetch(`${apiBaseUrl}/sync/shifts`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': apiKey
+    },
+    body: JSON.stringify({
+      shifts
+    }),
+    signal: AbortSignal.timeout(15000)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Shift sync failed with ${response.status}: ${errorText || 'Unknown error'}`
+    );
+  }
+
+  const payload = await response.json();
+  return Array.isArray(payload.syncedShifts) ? payload.syncedShifts.length : shifts.length;
+}
+
 async function uploadLocalProducts(apiBaseUrl, apiKey) {
   const products = getProductsForSync(500);
 
@@ -244,13 +283,19 @@ async function pullCloudProducts(apiBaseUrl, apiKey) {
 
 async function runSalesLoop(apiBaseUrl, apiKey) {
   const syncedCount = await uploadPendingSales(apiBaseUrl, apiKey);
+  const syncedShiftCount = await uploadShifts(apiBaseUrl, apiKey);
 
   if (syncedCount > 0) {
     safeLog('info', `Sync service: uploaded ${syncedCount} sale(s).`);
   }
 
+  if (syncedShiftCount > 0) {
+    safeLog('info', `Sync service: uploaded ${syncedShiftCount} shift record(s).`);
+  }
+
   return {
-    syncedCount
+    syncedCount,
+    syncedShiftCount
   };
 }
 
