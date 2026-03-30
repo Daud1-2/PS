@@ -7,6 +7,7 @@ import { getStockAlertLevel, hasVeryLowStock } from '../shared/stockAlerts.js';
 const adminConfig = window.__ADMIN_CONFIG__ || {};
 const refreshIntervalMs = Number(adminConfig.refreshMs) || 45000;
 const API_KEY_STORAGE_KEY = 'pos-admin-api-key';
+const PRODUCT_PAGE_SIZE = 120;
 
 function createApiUrl(pathname) {
   const baseUrl = String(adminConfig.apiBaseUrl || '').trim();
@@ -18,11 +19,14 @@ function createApiUrl(pathname) {
   return `${baseUrl}${pathname}`;
 }
 
-async function fetchJson(pathname, apiKey) {
+async function fetchJson(pathname, apiKey, options = {}) {
   const response = await fetch(createApiUrl(pathname), {
+    method: options.method || 'GET',
     headers: {
+      'content-type': 'application/json',
       'x-api-key': apiKey
-    }
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined
   });
 
   if (response.status === 401) {
@@ -130,6 +134,10 @@ export default function App() {
   });
   const [productsData, setProductsData] = useState({
     products: [],
+    totalCount: 0,
+    hasMore: false,
+    limit: PRODUCT_PAGE_SIZE,
+    offset: 0,
     serverTime: null
   });
   const [shiftsData, setShiftsData] = useState({
@@ -142,6 +150,8 @@ export default function App() {
   );
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isResettingBusinessData, setIsResettingBusinessData] = useState(false);
+  const [isLoadingMoreProducts, setIsLoadingMoreProducts] = useState(false);
 
   const inventorySummary = useMemo(() => {
     const inventoryRows = inventoryData.inventory || [];
@@ -186,54 +196,53 @@ export default function App() {
       const requests = [
         { key: 'sales', label: 'sales', pathname: '/sales' },
         { key: 'inventory', label: 'inventory', pathname: '/inventory' },
-        { key: 'products', label: 'products', pathname: '/products' },
+        {
+          key: 'products',
+          label: 'products',
+          pathname: `/products?limit=${PRODUCT_PAGE_SIZE}&offset=0`
+        },
         { key: 'shifts', label: 'shifts', pathname: '/shifts' }
       ];
-      const results = await Promise.allSettled(
-        requests.map((request) => fetchJson(request.pathname, activeApiKey))
-      );
       const failedSections = [];
       let unauthorizedError = null;
       let successCount = 0;
 
-      results.forEach((result, index) => {
-        const request = requests[index];
+      for (const request of requests) {
+        try {
+          const result = await fetchJson(request.pathname, activeApiKey);
+          successCount += 1;
 
-        if (result.status === 'rejected') {
-          if (result.reason?.code === 'UNAUTHORIZED') {
-            unauthorizedError = result.reason;
-            return;
+          if (request.key === 'sales') {
+            setSalesData(result);
+            continue;
+          }
+
+          if (request.key === 'inventory') {
+            setInventoryData(result);
+            continue;
+          }
+
+          if (request.key === 'products') {
+            setProductsData(result);
+            continue;
+          }
+
+          if (request.key === 'shifts') {
+            setShiftsData(result);
+          }
+        } catch (error) {
+          if (error?.code === 'UNAUTHORIZED') {
+            unauthorizedError = error;
+            break;
           }
 
           console.error(
             `Admin dashboard refresh failed for ${request.pathname}:`,
-            result.reason
+            error
           );
           failedSections.push(request.label);
-          return;
         }
-
-        successCount += 1;
-
-        if (request.key === 'sales') {
-          setSalesData(result.value);
-          return;
-        }
-
-        if (request.key === 'inventory') {
-          setInventoryData(result.value);
-          return;
-        }
-
-        if (request.key === 'products') {
-          setProductsData(result.value);
-          return;
-        }
-
-        if (request.key === 'shifts') {
-          setShiftsData(result.value);
-        }
-      });
+      }
 
       if (unauthorizedError) {
         throw unauthorizedError;
@@ -334,6 +343,10 @@ export default function App() {
     });
     setProductsData({
       products: [],
+      totalCount: 0,
+      hasMore: false,
+      limit: PRODUCT_PAGE_SIZE,
+      offset: 0,
       serverTime: null
     });
     setShiftsData({
@@ -343,6 +356,83 @@ export default function App() {
     setLastRefreshTime(null);
     setStatusMessage('Enter your admin API key to load data');
     setHasError(false);
+  }
+
+  async function handleResetBusinessData() {
+    if (!apiKey || isResettingBusinessData) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'Reset all synced sales and shift data from the admin backend? Product data will stay untouched.'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsResettingBusinessData(true);
+
+    try {
+      const result = await fetchJson('/maintenance/reset-business-data', apiKey, {
+        method: 'POST'
+      });
+
+      setStatusMessage(
+        `Business data reset complete. Products kept: ${result?.after?.products ?? 0}`
+      );
+      setHasError(false);
+      await loadDashboard(apiKey);
+    } catch (error) {
+      console.error('Admin business data reset failed:', error);
+      setStatusMessage(error?.message || 'Unable to reset business data');
+      setHasError(true);
+    } finally {
+      setIsResettingBusinessData(false);
+    }
+  }
+
+  async function handleLoadMoreProducts() {
+    if (!apiKey || isLoading || isLoadingMoreProducts || !productsData.hasMore) {
+      return;
+    }
+
+    setIsLoadingMoreProducts(true);
+
+    try {
+      const nextPage = await fetchJson(
+        `/products?limit=${PRODUCT_PAGE_SIZE}&offset=${productsData.products.length}`,
+        apiKey
+      );
+
+      setProductsData((current) => {
+        const mergedProducts = [...current.products];
+        const seenIds = new Set(mergedProducts.map((product) => product.id));
+
+        for (const product of nextPage.products || []) {
+          if (seenIds.has(product.id)) {
+            continue;
+          }
+
+          mergedProducts.push(product);
+          seenIds.add(product.id);
+        }
+
+        return {
+          ...current,
+          ...nextPage,
+          products: mergedProducts
+        };
+      });
+      setStatusMessage('Loaded more products');
+      setHasError(false);
+    } catch (error) {
+      console.error('Admin product pagination failed:', error);
+      setStatusMessage(error?.message || 'Unable to load more products');
+      setHasError(true);
+    } finally {
+      setIsLoadingMoreProducts(false);
+    }
   }
 
   return (
@@ -438,6 +528,17 @@ export default function App() {
               onClick={handleApiKeyReset}
             >
               Clear
+            </button>
+            <button
+              type="button"
+              style={{
+                ...styles.dangerButton,
+                ...(isMobile ? styles.buttonFullWidth : {})
+              }}
+              onClick={handleResetBusinessData}
+              disabled={!apiKey || isLoading || isResettingBusinessData}
+            >
+              {isResettingBusinessData ? 'Resetting...' : 'Reset Business Data'}
             </button>
           </form>
         </section>
@@ -670,8 +771,12 @@ export default function App() {
             <ProductManager
               apiKey={apiKey}
               products={productsData.products || []}
+              totalCount={productsData.totalCount || 0}
+              hasMore={Boolean(productsData.hasMore)}
               serverTime={productsData.serverTime}
               onRefreshRequested={() => loadDashboard(apiKey)}
+              onLoadMoreRequested={handleLoadMoreProducts}
+              isLoadingMore={isLoadingMoreProducts}
               isCompact={isTablet}
               isMobile={isMobile}
             />
@@ -685,7 +790,8 @@ export default function App() {
               <div>
                 <div style={styles.footerTitle}>Catalog</div>
                 <div style={styles.footerMeta}>
-                  {productsData.products.length} product records synced for admin
+                  Showing {productsData.products.length} of{' '}
+                  {productsData.totalCount || 0} product records synced for admin
                   management
                 </div>
               </div>
@@ -875,6 +981,16 @@ const styles = {
     borderRadius: '12px',
     backgroundColor: '#ffffff',
     color: '#475467',
+    fontSize: '14px',
+    fontWeight: 700,
+    cursor: 'pointer'
+  },
+  dangerButton: {
+    padding: '12px 16px',
+    border: '1px solid rgba(190, 18, 60, 0.18)',
+    borderRadius: '12px',
+    background: 'linear-gradient(135deg, #be123c 0%, #9f1239 100%)',
+    color: '#ffffff',
     fontSize: '14px',
     fontWeight: 700,
     cursor: 'pointer'

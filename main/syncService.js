@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { app } = require('electron');
+const { getAppConfig } = require('../config/appConfig');
 const { logInfo, logWarn, logError } = require('./logger');
 const {
   getPendingSalesForSync,
@@ -21,6 +22,8 @@ const INSECURE_API_KEYS = new Set([
 const DEFAULT_SALES_INTERVAL_MS = 15000;
 const DEFAULT_PRODUCT_INTERVAL_MS = 180000;
 const MAX_SYNC_INTERVAL_MS = 300000;
+const PRODUCT_SYNC_BATCH_SIZE = 100;
+const PRODUCT_SYNC_MAX_BATCHES = 3;
 
 const syncLoops = {
   sales: {
@@ -96,10 +99,25 @@ function persistSyncState() {
 }
 
 function getConfig() {
-  const apiKey = String(process.env.ADMIN_API_KEY || '').trim();
+  const appConfig = getAppConfig();
+  const configuredApiBaseUrl = String(
+    process.env.BACKEND_API_URL ||
+      appConfig.backendApiUrl ||
+      appConfig.adminApiBaseUrl ||
+      ''
+  ).trim();
+  const fallbackHostedApiBaseUrl = 'https://ps-admin-panel.vercel.app';
+  const shouldUseHostedFallback =
+    app.isPackaged &&
+    /^(?:https?:\/\/)?(?:127\.0\.0\.1|localhost)(?::\d+)?$/i.test(
+      configuredApiBaseUrl
+    );
+  const apiKey = String(process.env.ADMIN_API_KEY || 'admin').trim();
 
   return {
-    apiBaseUrl: String(process.env.BACKEND_API_URL || '').trim(),
+    apiBaseUrl: shouldUseHostedFallback
+      ? fallbackHostedApiBaseUrl
+      : configuredApiBaseUrl,
     apiKey: INSECURE_API_KEYS.has(apiKey) ? '' : apiKey,
     salesIntervalMs:
       Number(process.env.SYNC_INTERVAL_MS) || DEFAULT_SALES_INTERVAL_MS,
@@ -216,35 +234,45 @@ async function uploadShifts(apiBaseUrl, apiKey) {
 }
 
 async function uploadLocalProducts(apiBaseUrl, apiKey) {
-  const products = getProductsForSync(500);
+  let uploadedCount = 0;
 
-  if (products.length === 0) {
-    return 0;
+  for (let batchIndex = 0; batchIndex < PRODUCT_SYNC_MAX_BATCHES; batchIndex += 1) {
+    const products = getProductsForSync(PRODUCT_SYNC_BATCH_SIZE);
+
+    if (products.length === 0) {
+      break;
+    }
+
+    const response = await fetch(`${apiBaseUrl}/sync/products`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey
+      },
+      body: JSON.stringify({
+        products
+      }),
+      signal: AbortSignal.timeout(60000)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Product upload failed with ${response.status}: ${errorText || 'Unknown error'}`
+      );
+    }
+
+    const payload = await response.json();
+    const syncedProducts = Array.isArray(payload.products) ? payload.products : [];
+    applyCloudProducts(syncedProducts);
+    uploadedCount += syncedProducts.length;
+
+    if (products.length < PRODUCT_SYNC_BATCH_SIZE) {
+      break;
+    }
   }
 
-  const response = await fetch(`${apiBaseUrl}/sync/products`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey
-    },
-    body: JSON.stringify({
-      products
-    }),
-    signal: AbortSignal.timeout(20000)
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `Product upload failed with ${response.status}: ${errorText || 'Unknown error'}`
-    );
-  }
-
-  const payload = await response.json();
-  applyCloudProducts(payload.products || []);
-
-  return Array.isArray(payload.products) ? payload.products.length : 0;
+  return uploadedCount;
 }
 
 async function pullCloudProducts(apiBaseUrl, apiKey) {
@@ -306,17 +334,17 @@ async function runProductsLoop(apiBaseUrl, apiKey) {
   let pullError = null;
 
   try {
-    uploadedCount = await uploadLocalProducts(apiBaseUrl, apiKey);
-  } catch (error) {
-    uploadError = error;
-    safeLog('warn', 'Sync service: product upload skipped due to error.', error);
-  }
-
-  try {
     pulledCount = await pullCloudProducts(apiBaseUrl, apiKey);
   } catch (error) {
     pullError = error;
     safeLog('warn', 'Sync service: product pull failed.', error);
+  }
+
+  try {
+    uploadedCount = await uploadLocalProducts(apiBaseUrl, apiKey);
+  } catch (error) {
+    uploadError = error;
+    safeLog('warn', 'Sync service: product upload skipped due to error.', error);
   }
 
   if (uploadedCount > 0 || pulledCount > 0) {

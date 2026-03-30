@@ -11,6 +11,7 @@ const {
   stopBackupService,
   createManualBackup
 } = require('./backupService');
+const { resetBusinessData } = require('./adminDataService');
 const {
   saveCartState,
   loadCartState,
@@ -369,6 +370,9 @@ function registerIpcHandlers() {
     },
     'backup:create': async () => {
       return createManualBackup();
+    },
+    'admin:reset-business-data': async () => {
+      return resetBusinessData();
     },
     'cart-state:save': async (_event, state) => {
       return saveCartState(state);

@@ -4,3 +4,6 @@ dist
 node_modules
 release
 tmp-*
+index.html
+.env
+.env.*

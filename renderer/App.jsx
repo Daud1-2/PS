@@ -796,6 +796,27 @@ export default function App() {
     return product;
   };
 
+  const handleResetBusinessData = async () => {
+    const result = await window.posAPI.resetBusinessData();
+
+    resetActiveSaleState();
+    setHeldSaleState(null);
+    setActiveShift(null);
+    setIsShiftLoading(false);
+    setShiftModalMode('open');
+    setShiftClosingSummary(null);
+    setIsShiftModalOpen(true);
+    setLastReceipt(null);
+    setLastSyncPayload(null);
+    setPrintStatus('idle');
+    setBackupStatus('idle');
+    setIsQuickAddPinPromptOpen(false);
+    setPendingQuickAddBarcode('');
+    setProductCompletionTarget(null);
+
+    return result;
+  };
+
   const handleProductSelected = (product, label = product.name) => {
     clearQuickAdd();
 
@@ -1436,6 +1457,7 @@ export default function App() {
               onAddProduct={createProduct}
               onUpdateProduct={updateProduct}
               onDeleteProduct={deleteProduct}
+              onResetBusinessData={handleResetBusinessData}
             />
           )}
         </section>

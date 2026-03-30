@@ -89,10 +89,6 @@ function areNullableNumbersEqual(left, right) {
   return Number(left) === Number(right);
 }
 
-function isSellableProduct(product) {
-  return normalizeNullableNumber(product?.sellingPrice) !== null;
-}
-
 function mapProductRow(row) {
   if (!row) {
     return null;
@@ -574,14 +570,13 @@ function getProductsForSync(limit = 500) {
     )
     .all(Number(limit))
     .map(mapProductRow)
-    .filter(isSellableProduct)
     .map((product) => ({
       localProductId: product.id,
       cloudProductId: product.cloudProductId,
       storeId: getDefaultStoreId(),
       name: product.name,
       barcode: product.barcode,
-      costPrice: product.costPrice ?? 0,
+      costPrice: product.costPrice,
       sellingPrice: product.sellingPrice,
       stock: product.stock,
       createdSource: product.createdSource,
@@ -679,7 +674,7 @@ function applyCloudProducts(products) {
           {
             createdSource: cloudProduct?.createdSource || 'admin',
             requireCost: false,
-            requireSellingPrice: true,
+            requireSellingPrice: false,
             requireStock: true
           }
         );

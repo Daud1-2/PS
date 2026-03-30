@@ -21775,16 +21775,20 @@
       id: product.id,
       name: product.name,
       barcode: product.barcode,
-      costPrice: String(product.costPrice),
-      sellingPrice: String(product.sellingPrice),
+      costPrice: product.costPrice === null || product.costPrice === void 0 ? "" : String(product.costPrice),
+      sellingPrice: product.sellingPrice === null || product.sellingPrice === void 0 ? "" : String(product.sellingPrice),
       stock: String(product.stock)
     };
   }
   function ProductManager({
     apiKey,
     products,
+    totalCount = 0,
+    hasMore = false,
     serverTime,
     onRefreshRequested,
+    onLoadMoreRequested,
+    isLoadingMore = false,
     isCompact = false,
     isMobile = false
   }) {
@@ -21800,11 +21804,13 @@
     const [statusTone, setStatusTone] = (0, import_react.useState)("neutral");
     const [isSaving, setIsSaving] = (0, import_react.useState)(false);
     (0, import_react.useEffect)(() => {
-      const nextDrafts = {};
-      for (const product of products) {
-        nextDrafts[product.id] = createDraft(product);
-      }
-      setDrafts(nextDrafts);
+      setDrafts((current) => {
+        const nextDrafts = {};
+        for (const product of products) {
+          nextDrafts[product.id] = current[product.id] || createDraft(product);
+        }
+        return nextDrafts;
+      });
     }, [products]);
     const visibleProducts = (0, import_react.useMemo)(() => {
       return [...products].sort(
@@ -22318,7 +22324,38 @@
             product.id
           );
         }) })
-      ] }) })
+      ] }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        "footer",
+        {
+          style: {
+            ...styles.paginationFooter,
+            ...isCompact ? styles.paginationFooterStack : {}
+          },
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: styles.paginationMeta, children: [
+              "Showing ",
+              visibleProducts.length,
+              " of ",
+              totalCount,
+              " products"
+            ] }),
+            hasMore ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "button",
+              {
+                type: "button",
+                style: {
+                  ...styles.secondaryButton,
+                  ...isCompact ? styles.fullWidthButton : {}
+                },
+                onClick: onLoadMoreRequested,
+                disabled: !apiKey || isSaving || isLoadingMore,
+                children: isLoadingMore ? "Loading..." : "Load more"
+              }
+            ) : totalCount > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: styles.paginationDone, children: "All products loaded" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: styles.paginationDone, children: "No products synced yet" })
+          ]
+        }
+      )
     ] });
   }
   var styles = {
@@ -22457,6 +22494,28 @@
     tableWrap: {
       marginTop: "18px",
       overflowX: "auto"
+    },
+    paginationFooter: {
+      marginTop: "18px",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: "12px",
+      flexWrap: "wrap"
+    },
+    paginationFooterStack: {
+      flexDirection: "column",
+      alignItems: "stretch"
+    },
+    paginationMeta: {
+      fontSize: "13px",
+      fontWeight: 700,
+      color: "#667085"
+    },
+    paginationDone: {
+      fontSize: "13px",
+      fontWeight: 700,
+      color: "#475467"
     },
     table: {
       width: "100%",
@@ -23041,6 +23100,7 @@
   var adminConfig2 = window.__ADMIN_CONFIG__ || {};
   var refreshIntervalMs = Number(adminConfig2.refreshMs) || 45e3;
   var API_KEY_STORAGE_KEY = "pos-admin-api-key";
+  var PRODUCT_PAGE_SIZE = 120;
   function createApiUrl2(pathname) {
     const baseUrl = String(adminConfig2.apiBaseUrl || "").trim();
     if (!baseUrl) {
@@ -23048,11 +23108,14 @@
     }
     return `${baseUrl}${pathname}`;
   }
-  async function fetchJson(pathname, apiKey) {
+  async function fetchJson(pathname, apiKey, options = {}) {
     const response = await fetch(createApiUrl2(pathname), {
+      method: options.method || "GET",
       headers: {
+        "content-type": "application/json",
         "x-api-key": apiKey
-      }
+      },
+      body: options.body ? JSON.stringify(options.body) : void 0
     });
     if (response.status === 401) {
       const error = new Error("UNAUTHORIZED");
@@ -23145,6 +23208,10 @@
     });
     const [productsData, setProductsData] = (0, import_react4.useState)({
       products: [],
+      totalCount: 0,
+      hasMore: false,
+      limit: PRODUCT_PAGE_SIZE,
+      offset: 0,
       serverTime: null
     });
     const [shiftsData, setShiftsData] = (0, import_react4.useState)({
@@ -23157,6 +23224,8 @@
     );
     const [hasError, setHasError] = (0, import_react4.useState)(false);
     const [isLoading, setIsLoading] = (0, import_react4.useState)(false);
+    const [isResettingBusinessData, setIsResettingBusinessData] = (0, import_react4.useState)(false);
+    const [isLoadingMoreProducts, setIsLoadingMoreProducts] = (0, import_react4.useState)(false);
     const inventorySummary = (0, import_react4.useMemo)(() => {
       const inventoryRows = inventoryData.inventory || [];
       return inventoryRows.reduce(
@@ -23196,7 +23265,11 @@
         const requests = [
           { key: "sales", label: "sales", pathname: "/sales" },
           { key: "inventory", label: "inventory", pathname: "/inventory" },
-          { key: "products", label: "products", pathname: "/products" },
+          {
+            key: "products",
+            label: "products",
+            pathname: `/products?limit=${PRODUCT_PAGE_SIZE}&offset=0`
+          },
           { key: "shifts", label: "shifts", pathname: "/shifts" }
         ];
         const results = await Promise.allSettled(
@@ -23319,6 +23392,10 @@
       });
       setProductsData({
         products: [],
+        totalCount: 0,
+        hasMore: false,
+        limit: PRODUCT_PAGE_SIZE,
+        offset: 0,
         serverTime: null
       });
       setShiftsData({
@@ -23328,6 +23405,70 @@
       setLastRefreshTime(null);
       setStatusMessage("Enter your admin API key to load data");
       setHasError(false);
+    }
+    async function handleResetBusinessData() {
+      if (!apiKey || isResettingBusinessData) {
+        return;
+      }
+      const confirmed = window.confirm(
+        "Reset all synced sales and shift data from the admin backend? Product data will stay untouched."
+      );
+      if (!confirmed) {
+        return;
+      }
+      setIsResettingBusinessData(true);
+      try {
+        const result = await fetchJson("/maintenance/reset-business-data", apiKey, {
+          method: "POST"
+        });
+        setStatusMessage(
+          `Business data reset complete. Products kept: ${result?.after?.products ?? 0}`
+        );
+        setHasError(false);
+        await loadDashboard(apiKey);
+      } catch (error) {
+        console.error("Admin business data reset failed:", error);
+        setStatusMessage(error?.message || "Unable to reset business data");
+        setHasError(true);
+      } finally {
+        setIsResettingBusinessData(false);
+      }
+    }
+    async function handleLoadMoreProducts() {
+      if (!apiKey || isLoading || isLoadingMoreProducts || !productsData.hasMore) {
+        return;
+      }
+      setIsLoadingMoreProducts(true);
+      try {
+        const nextPage = await fetchJson(
+          `/products?limit=${PRODUCT_PAGE_SIZE}&offset=${productsData.products.length}`,
+          apiKey
+        );
+        setProductsData((current) => {
+          const mergedProducts = [...current.products];
+          const seenIds = new Set(mergedProducts.map((product) => product.id));
+          for (const product of nextPage.products || []) {
+            if (seenIds.has(product.id)) {
+              continue;
+            }
+            mergedProducts.push(product);
+            seenIds.add(product.id);
+          }
+          return {
+            ...current,
+            ...nextPage,
+            products: mergedProducts
+          };
+        });
+        setStatusMessage("Loaded more products");
+        setHasError(false);
+      } catch (error) {
+        console.error("Admin product pagination failed:", error);
+        setStatusMessage(error?.message || "Unable to load more products");
+        setHasError(true);
+      } finally {
+        setIsLoadingMoreProducts(false);
+      }
     }
     return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("main", { style: { ...styles3.page, ...isMobile ? styles3.pageMobile : {} }, children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { style: styles3.shell, children: [
       /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
@@ -23432,6 +23573,19 @@
                       },
                       onClick: handleApiKeyReset,
                       children: "Clear"
+                    }
+                  ),
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+                    "button",
+                    {
+                      type: "button",
+                      style: {
+                        ...styles3.dangerButton,
+                        ...isMobile ? styles3.buttonFullWidth : {}
+                      },
+                      onClick: handleResetBusinessData,
+                      disabled: !apiKey || isLoading || isResettingBusinessData,
+                      children: isResettingBusinessData ? "Resetting..." : "Reset Business Data"
                     }
                   )
                 ]
@@ -23649,8 +23803,12 @@
           {
             apiKey,
             products: productsData.products || [],
+            totalCount: productsData.totalCount || 0,
+            hasMore: Boolean(productsData.hasMore),
             serverTime: productsData.serverTime,
             onRefreshRequested: () => loadDashboard(apiKey),
+            onLoadMoreRequested: handleLoadMoreProducts,
+            isLoadingMore: isLoadingMoreProducts,
             isCompact: isTablet,
             isMobile
           }
@@ -23666,7 +23824,11 @@
               /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
                 /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: styles3.footerTitle, children: "Catalog" }),
                 /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: styles3.footerMeta, children: [
+                  "Showing ",
                   productsData.products.length,
+                  " of",
+                  " ",
+                  productsData.totalCount || 0,
                   " product records synced for admin management"
                 ] })
               ] }),
@@ -23856,6 +24018,16 @@
       borderRadius: "12px",
       backgroundColor: "#ffffff",
       color: "#475467",
+      fontSize: "14px",
+      fontWeight: 700,
+      cursor: "pointer"
+    },
+    dangerButton: {
+      padding: "12px 16px",
+      border: "1px solid rgba(190, 18, 60, 0.18)",
+      borderRadius: "12px",
+      background: "linear-gradient(135deg, #be123c 0%, #9f1239 100%)",
+      color: "#ffffff",
       fontSize: "14px",
       fontWeight: 700,
       cursor: "pointer"

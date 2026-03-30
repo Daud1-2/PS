@@ -7,10 +7,12 @@ export default function Products({
   refreshToken,
   onAddProduct,
   onUpdateProduct,
-  onDeleteProduct
+  onDeleteProduct,
+  onResetBusinessData
 }) {
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isResettingData, setIsResettingData] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Product catalog ready');
   const [statusTone, setStatusTone] = useState('neutral');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -95,6 +97,31 @@ export default function Products({
     setStatusTone('success');
   };
 
+  const handleResetBusinessData = async () => {
+    const confirmed = window.confirm(
+      'Reset all sales, shifts, cart state, and sync state? Product data will stay intact.'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsResettingData(true);
+
+    try {
+      const result = await onResetBusinessData?.();
+      setStatusMessage(
+        `Business data reset complete. Products kept: ${result?.after?.products ?? products.length}`
+      );
+      setStatusTone('success');
+    } catch (error) {
+      setStatusMessage(error?.message || 'Unable to reset business data.');
+      setStatusTone('error');
+    } finally {
+      setIsResettingData(false);
+    }
+  };
+
   return (
     <>
       <section style={styles.page}>
@@ -140,13 +167,27 @@ export default function Products({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsCreateOpen(true)}
-            style={styles.primaryButton}
-          >
-            Add Product
-          </button>
+          <div style={styles.actionGroup}>
+            <button
+              type="button"
+              onClick={handleResetBusinessData}
+              disabled={isResettingData}
+              style={{
+                ...styles.dangerButton,
+                ...(isResettingData ? styles.disabledButton : {})
+              }}
+            >
+              {isResettingData ? 'Resetting...' : 'Reset Business Data'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsCreateOpen(true)}
+              style={styles.primaryButton}
+            >
+              Add Product
+            </button>
+          </div>
         </section>
 
         {lowStockCount > 0 ? (
@@ -285,6 +326,12 @@ const styles = {
     gap: '16px',
     flexWrap: 'wrap'
   },
+  actionGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    flexWrap: 'wrap'
+  },
   metricRow: {
     display: 'flex',
     gap: '12px',
@@ -328,6 +375,22 @@ const styles = {
     fontWeight: 800,
     cursor: 'pointer',
     boxShadow: '0 12px 28px rgba(22, 48, 43, 0.18)'
+  },
+  dangerButton: {
+    minHeight: '52px',
+    padding: '0 20px',
+    borderRadius: '16px',
+    border: '1px solid rgba(225, 29, 72, 0.16)',
+    background: 'linear-gradient(135deg, #be123c 0%, #9f1239 100%)',
+    color: '#ffffff',
+    fontSize: '14px',
+    fontWeight: 800,
+    cursor: 'pointer',
+    boxShadow: '0 12px 24px rgba(190, 18, 60, 0.18)'
+  },
+  disabledButton: {
+    opacity: 0.7,
+    cursor: 'not-allowed'
   },
   lowStockBanner: {
     padding: '18px 20px',

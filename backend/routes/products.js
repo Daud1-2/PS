@@ -16,6 +16,37 @@ function parseTimestamp(value, fallback = new Date().toISOString()) {
   return parsed.toISOString();
 }
 
+function parsePositiveInteger(value, fallback, { minimum = 1, maximum = 500 } = {}) {
+  const parsed = Number.parseInt(String(value || '').trim(), 10);
+
+  if (!Number.isInteger(parsed)) {
+    return fallback;
+  }
+
+  return Math.min(Math.max(parsed, minimum), maximum);
+}
+
+function hasProvidedValue(value) {
+  return value !== null && value !== undefined && String(value).trim() !== '';
+}
+
+function normalizeNullableNumber(value) {
+  if (!hasProvidedValue(value)) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function areNullableNumbersEqual(left, right) {
+  if (left === null && right === null) {
+    return true;
+  }
+
+  return Number(left) === Number(right);
+}
+
 function serializeProduct(row) {
   return {
     id: Number(row.id),
@@ -26,8 +57,8 @@ function serializeProduct(row) {
         : Number(row.productId),
     name: row.name,
     barcode: row.barcode,
-    costPrice: Number(row.costPrice),
-    sellingPrice: Number(row.sellingPrice),
+    costPrice: normalizeNullableNumber(row.costPrice),
+    sellingPrice: normalizeNullableNumber(row.sellingPrice),
     stock: Number(row.stock),
     catalogUpdatedAt: row.catalogUpdatedAt,
     stockUpdatedAt: row.stockUpdatedAt,
@@ -57,7 +88,9 @@ function mapProductRowQuery() {
   `;
 }
 
-function normalizeProductInput(input) {
+function normalizeProductInput(input, options = {}) {
+  const requireCost = options.requireCost !== false;
+  const requireSellingPrice = options.requireSellingPrice !== false;
   const requestedStoreId =
     String(input?.storeId || DEFAULT_STORE_ID).trim() || DEFAULT_STORE_ID;
 
@@ -69,8 +102,8 @@ function normalizeProductInput(input) {
     storeId: DEFAULT_STORE_ID,
     name: String(input?.name || '').trim(),
     barcode: String(input?.barcode || '').trim(),
-    costPrice: Number(input?.costPrice),
-    sellingPrice: Number(input?.sellingPrice),
+    costPrice: normalizeNullableNumber(input?.costPrice),
+    sellingPrice: normalizeNullableNumber(input?.sellingPrice),
     stock: Number(input?.stock),
     createdSource: String(input?.createdSource || 'admin').trim() || 'admin',
     catalogUpdatedAt: parseTimestamp(input?.catalogUpdatedAt),
@@ -85,11 +118,11 @@ function normalizeProductInput(input) {
     throw new Error('Product barcode is required.');
   }
 
-  if (!Number.isFinite(payload.costPrice)) {
+  if (requireCost && payload.costPrice === null) {
     throw new Error('Valid product cost price is required.');
   }
 
-  if (!Number.isFinite(payload.sellingPrice)) {
+  if (requireSellingPrice && payload.sellingPrice === null) {
     throw new Error('Valid product selling price is required.');
   }
 
@@ -313,7 +346,10 @@ async function updateProduct(client, existingProduct, product) {
 
 async function upsertSyncedProduct(client, incomingProduct) {
   const normalized = {
-    ...normalizeProductInput(incomingProduct),
+    ...normalizeProductInput(incomingProduct, {
+      requireCost: false,
+      requireSellingPrice: false
+    }),
     localProductId:
       incomingProduct?.localProductId === null ||
       incomingProduct?.localProductId === undefined
@@ -338,6 +374,14 @@ async function upsertSyncedProduct(client, incomingProduct) {
 router.get('/products', async (req, res, next) => {
   try {
     const updatedSince = String(req.query.updatedSince || '').trim();
+    const limit = parsePositiveInteger(req.query.limit, 500, {
+      minimum: 1,
+      maximum: 500
+    });
+    const offset = parsePositiveInteger(req.query.offset, 0, {
+      minimum: 0,
+      maximum: 100000
+    });
     const params = [DEFAULT_STORE_ID];
     let whereClause = 'WHERE store_id = $1';
 
@@ -346,17 +390,35 @@ router.get('/products', async (req, res, next) => {
       params.push(parseTimestamp(updatedSince));
     }
 
-    const productResult = await query(
+    const countResult = await query(
       `
-        ${mapProductRowQuery()}
+        SELECT COUNT(*)::int AS "totalCount"
+        FROM products
         ${whereClause}
-        ORDER BY updated_at ASC, name ASC
       `,
       params
     );
 
+    const productResult = await query(
+      `
+        ${mapProductRowQuery()}
+        ${whereClause}
+        ORDER BY name ASC, id ASC
+        LIMIT $${params.length + 1}
+        OFFSET $${params.length + 2}
+      `,
+      [...params, limit, offset]
+    );
+
+    const totalCount = Number(countResult.rows[0]?.totalCount || 0);
+    const nextOffset = offset + productResult.rows.length;
+
     res.json({
       products: productResult.rows.map(serializeProduct),
+      totalCount,
+      limit,
+      offset,
+      hasMore: nextOffset < totalCount,
       serverTime: new Date().toISOString()
     });
   } catch (error) {
@@ -456,8 +518,8 @@ router.put('/products/:id', async (req, res, next) => {
     const nextCatalogTimestamp =
       payload.name !== existing.name ||
       payload.barcode !== existing.barcode ||
-      Number(payload.costPrice) !== Number(existing.costPrice) ||
-      Number(payload.sellingPrice) !== Number(existing.sellingPrice)
+      !areNullableNumbersEqual(payload.costPrice, existing.costPrice) ||
+      !areNullableNumbersEqual(payload.sellingPrice, existing.sellingPrice)
         ? new Date().toISOString()
         : existing.catalogUpdatedAt;
     const nextStockTimestamp =

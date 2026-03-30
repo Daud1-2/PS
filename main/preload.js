@@ -43,6 +43,9 @@ contextBridge.exposeInMainWorld('posAPI', {
   backupDatabase() {
     return ipcRenderer.invoke('backup:create');
   },
+  resetBusinessData() {
+    return ipcRenderer.invoke('admin:reset-business-data');
+  },
   saveCartState(state) {
     return ipcRenderer.invoke('cart-state:save', state);
   },

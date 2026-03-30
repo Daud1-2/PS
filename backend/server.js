@@ -11,6 +11,7 @@ const salesRoutes = require('./routes/sales');
 const inventoryRoutes = require('./routes/inventory');
 const productsRoutes = require('./routes/products');
 const shiftsRoutes = require('./routes/shifts');
+const maintenanceRoutes = require('./routes/maintenance');
 const { ensureCloudSchema, hasDatabaseConfig } = require('./db');
 const { requireApiKey } = require('./middleware/auth');
 
@@ -21,7 +22,14 @@ let backendReadyPromise = null;
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 
-const protectedPrefixes = ['/sync', '/sales', '/inventory', '/products', '/shifts'];
+const protectedPrefixes = [
+  '/sync',
+  '/sales',
+  '/inventory',
+  '/products',
+  '/shifts',
+  '/maintenance'
+];
 
 app.get('/health', (_req, res) => {
   res.json({
@@ -52,10 +60,21 @@ app.use(salesRoutes);
 app.use(inventoryRoutes);
 app.use(productsRoutes);
 app.use(shiftsRoutes);
+app.use(maintenanceRoutes);
 
 function buildAdminHtml() {
+  const configuredApiBaseUrl = String(
+    process.env.ADMIN_API_BASE_URL || process.env.BACKEND_API_URL || ''
+  ).trim();
+  const runningOnHostedEnvironment = Boolean(
+    process.env.VERCEL || process.env.NODE_ENV === 'production'
+  );
+  const pointsToLocalhost =
+    /^https?:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?$/i.test(configuredApiBaseUrl);
   const adminConfig = {
-    apiBaseUrl: process.env.ADMIN_API_BASE_URL || '',
+    // Hosted admin deployments should default to same-origin instead of a local dev API URL.
+    apiBaseUrl:
+      runningOnHostedEnvironment && pointsToLocalhost ? '' : configuredApiBaseUrl,
     refreshMs: Number(process.env.ADMIN_REFRESH_MS) || 45000
   };
 

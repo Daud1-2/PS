@@ -1,42 +1,66 @@
-const { Pool } = require('pg');
+const { Client } = require('pg');
 
-const connectionString =
+function normalizeConnectionString(rawConnectionString) {
+  const value = String(rawConnectionString || '').trim();
+
+  if (!value) {
+    return '';
+  }
+
+  try {
+    const url = new URL(value);
+
+    if (url.hostname.endsWith('pooler.supabase.com') && url.port === '5432') {
+      url.port = '6543';
+      return url.toString();
+    }
+  } catch (_error) {
+    return value;
+  }
+
+  return value;
+}
+
+const connectionString = normalizeConnectionString(
   process.env.SUPABASE_DB_URL ||
-  process.env.SUPABASE_DATABASE_URL ||
-  process.env.DATABASE_URL ||
-  '';
-
-let pool;
+    process.env.SUPABASE_DATABASE_URL ||
+    process.env.DATABASE_URL ||
+    ''
+);
 
 function hasDatabaseConfig() {
   return Boolean(connectionString);
 }
 
-function getPool() {
+function getClient() {
   if (!hasDatabaseConfig()) {
     throw new Error(
       'Supabase Postgres connection string is missing. Set SUPABASE_DB_URL.'
     );
   }
 
-  if (!pool) {
-    pool = new Pool({
-      connectionString,
-      ssl: {
-        rejectUnauthorized: false
-      }
-    });
-  }
-
-  return pool;
+  return new Client({
+    connectionString,
+    ssl: {
+      rejectUnauthorized: false
+    }
+  });
 }
 
 async function query(text, params = []) {
-  return getPool().query(text, params);
+  const client = getClient();
+  await client.connect();
+
+  try {
+    return await client.query(text, params);
+  } finally {
+    await client.end();
+  }
 }
 
 async function withTransaction(work) {
-  const client = await getPool().connect();
+  const client = getClient();
+  await client.connect();
 
   try {
     await client.query('BEGIN');
@@ -47,7 +71,7 @@ async function withTransaction(work) {
     await client.query('ROLLBACK');
     throw error;
   } finally {
-    client.release();
+    await client.end();
   }
 }
 
@@ -207,11 +231,19 @@ async function ensureCloudSchema() {
     CREATE INDEX IF NOT EXISTS idx_products_updated_at
     ON products(updated_at DESC);
   `);
+
+  await query(`
+    ALTER TABLE products
+    ALTER COLUMN cost_price DROP NOT NULL;
+
+    ALTER TABLE products
+    ALTER COLUMN selling_price DROP NOT NULL;
+  `);
 }
 
 module.exports = {
   hasDatabaseConfig,
-  getPool,
+  getClient,
   query,
   withTransaction,
   ensureCloudSchema

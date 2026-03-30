@@ -30,8 +30,14 @@ function createDraft(product) {
     id: product.id,
     name: product.name,
     barcode: product.barcode,
-    costPrice: String(product.costPrice),
-    sellingPrice: String(product.sellingPrice),
+    costPrice:
+      product.costPrice === null || product.costPrice === undefined
+        ? ''
+        : String(product.costPrice),
+    sellingPrice:
+      product.sellingPrice === null || product.sellingPrice === undefined
+        ? ''
+        : String(product.sellingPrice),
     stock: String(product.stock)
   };
 }
@@ -39,8 +45,12 @@ function createDraft(product) {
 export default function ProductManager({
   apiKey,
   products,
+  totalCount = 0,
+  hasMore = false,
   serverTime,
   onRefreshRequested,
+  onLoadMoreRequested,
+  isLoadingMore = false,
   isCompact = false,
   isMobile = false
 }) {
@@ -57,13 +67,15 @@ export default function ProductManager({
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    const nextDrafts = {};
+    setDrafts((current) => {
+      const nextDrafts = {};
 
-    for (const product of products) {
-      nextDrafts[product.id] = createDraft(product);
-    }
+      for (const product of products) {
+        nextDrafts[product.id] = current[product.id] || createDraft(product);
+      }
 
-    setDrafts(nextDrafts);
+      return nextDrafts;
+    });
   }, [products]);
 
   const visibleProducts = useMemo(() => {
@@ -611,6 +623,34 @@ export default function ProductManager({
           </table>
         </div>
       )}
+
+      <footer
+        style={{
+          ...styles.paginationFooter,
+          ...(isCompact ? styles.paginationFooterStack : {})
+        }}
+      >
+        <div style={styles.paginationMeta}>
+          Showing {visibleProducts.length} of {totalCount} products
+        </div>
+        {hasMore ? (
+          <button
+            type="button"
+            style={{
+              ...styles.secondaryButton,
+              ...(isCompact ? styles.fullWidthButton : {})
+            }}
+            onClick={onLoadMoreRequested}
+            disabled={!apiKey || isSaving || isLoadingMore}
+          >
+            {isLoadingMore ? 'Loading...' : 'Load more'}
+          </button>
+        ) : totalCount > 0 ? (
+          <div style={styles.paginationDone}>All products loaded</div>
+        ) : (
+          <div style={styles.paginationDone}>No products synced yet</div>
+        )}
+      </footer>
     </section>
   );
 }
@@ -751,6 +791,28 @@ const styles = {
   tableWrap: {
     marginTop: '18px',
     overflowX: 'auto'
+  },
+  paginationFooter: {
+    marginTop: '18px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '12px',
+    flexWrap: 'wrap'
+  },
+  paginationFooterStack: {
+    flexDirection: 'column',
+    alignItems: 'stretch'
+  },
+  paginationMeta: {
+    fontSize: '13px',
+    fontWeight: 700,
+    color: '#667085'
+  },
+  paginationDone: {
+    fontSize: '13px',
+    fontWeight: 700,
+    color: '#475467'
   },
   table: {
     width: '100%',
