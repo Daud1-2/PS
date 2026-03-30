@@ -214,6 +214,8 @@ export default function App() {
   const [hasLoadedCartState, setHasLoadedCartState] = useState(false);
   const [heldSaleState, setHeldSaleState] = useState(null);
   const [quickAddBarcode, setQuickAddBarcode] = useState('');
+  const [pendingQuickAddBarcode, setPendingQuickAddBarcode] = useState('');
+  const [isQuickAddPinPromptOpen, setIsQuickAddPinPromptOpen] = useState(false);
   const [productCompletionTarget, setProductCompletionTarget] = useState(null);
   const [productsRefreshToken, setProductsRefreshToken] = useState(0);
   const [updateState, setUpdateState] = useState({
@@ -819,6 +821,29 @@ export default function App() {
   };
 
   const handleQuickAddRequested = (barcode) => {
+    if (isProductsSectionUnlocked) {
+      setQuickAddBarcode(barcode);
+      setLastItemLabel(barcode);
+      showStatus(`No product found for ${barcode}`, 'error');
+      return;
+    }
+
+    setPendingQuickAddBarcode(barcode);
+    setIsQuickAddPinPromptOpen(true);
+    setLastItemLabel(barcode);
+    showStatus(`PIN required before adding ${barcode} as a new product`, 'error');
+  };
+
+  const handleQuickAddPinSuccess = () => {
+    const barcode = pendingQuickAddBarcode;
+
+    setIsQuickAddPinPromptOpen(false);
+    setPendingQuickAddBarcode('');
+
+    if (!barcode) {
+      return;
+    }
+
     setQuickAddBarcode(barcode);
     setLastItemLabel(barcode);
     showStatus(`No product found for ${barcode}`, 'error');
@@ -1424,6 +1449,19 @@ export default function App() {
           focusBarcodeInput();
         }}
         onSave={handleQuickAddSaved}
+      />
+
+      <PinLockModal
+        isOpen={isQuickAddPinPromptOpen}
+        title="Quick add PIN"
+        description="Enter the manager PIN before adding a brand new product from the barcode screen."
+        expectedPin={PRODUCTS_SECTION_PIN}
+        onClose={() => {
+          setIsQuickAddPinPromptOpen(false);
+          setPendingQuickAddBarcode('');
+          focusBarcodeInput();
+        }}
+        onSuccess={handleQuickAddPinSuccess}
       />
 
       <ProductCompletionModal
