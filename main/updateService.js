@@ -1,6 +1,7 @@
 const { app } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { logError, logInfo, logWarn } = require('./logger');
+const { createManualBackup } = require('./backupService');
 
 let initialized = false;
 let state = {
@@ -226,6 +227,20 @@ async function installDownloadedUpdate() {
   logInfo('Installing downloaded application update.', {
     version: state.downloadedVersion
   });
+
+  try {
+    const backup = await createManualBackup();
+
+    logInfo('Pre-update backup created successfully.', {
+      version: state.downloadedVersion,
+      backupPath: backup.path
+    });
+  } catch (error) {
+    logError('Pre-update backup failed. Update installation aborted.', error);
+    throw new Error(
+      'A safety backup could not be created, so the update was cancelled to protect local data.'
+    );
+  }
 
   setImmediate(() => {
     autoUpdater.quitAndInstall(false, true);

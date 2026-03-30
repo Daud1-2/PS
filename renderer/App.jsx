@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import BarcodeInput from './components/BarcodeInput.jsx';
 import CartTable from './components/CartTable.jsx';
 import Checkout from './components/Checkout.jsx';
+import PinLockModal from './components/PinLockModal.jsx';
 import ProductCompletionModal from './components/ProductCompletionModal.jsx';
 import ProductGrid from './components/ProductGrid.jsx';
 import QuickAddProduct from './components/QuickAddProduct.jsx';
@@ -11,6 +12,7 @@ import Sidebar from './layout/Sidebar.jsx';
 import Products from './pages/Products.jsx';
 
 const HELD_SALE_STORAGE_KEY = 'pos-held-sale-state';
+const PRODUCTS_SECTION_PIN = '4545';
 
 function hasProductSellingPrice(product) {
   return (
@@ -184,6 +186,8 @@ export default function App() {
   const barcodeInputRef = useRef(null);
   const cartRef = useRef([]);
   const [activeView, setActiveView] = useState('pos');
+  const [isProductsSectionUnlocked, setIsProductsSectionUnlocked] = useState(false);
+  const [isProductsPinPromptOpen, setIsProductsPinPromptOpen] = useState(false);
   const [cart, setCart] = useState([]);
   const [stockByProductId, setStockByProductId] = useState({});
   const [catalogProducts, setCatalogProducts] = useState([]);
@@ -1150,6 +1154,26 @@ export default function App() {
 
   const isSaleExpanded = cart.length > 0 || Boolean(heldSaleState?.itemCount);
 
+  const handleNavigate = (nextView) => {
+    if (nextView !== 'products') {
+      setActiveView(nextView);
+      return;
+    }
+
+    if (isProductsSectionUnlocked) {
+      setActiveView('products');
+      return;
+    }
+
+    setIsProductsPinPromptOpen(true);
+  };
+
+  const handleProductsPinSuccess = () => {
+    setIsProductsSectionUnlocked(true);
+    setIsProductsPinPromptOpen(false);
+    setActiveView('products');
+  };
+
   const posView = (
     <section style={styles.contentShell}>
       <header style={styles.posHeader}>
@@ -1346,7 +1370,7 @@ export default function App() {
   return (
     <main style={styles.page}>
       <div style={styles.layout}>
-        <Sidebar activeView={activeView} onNavigate={setActiveView} />
+        <Sidebar activeView={activeView} onNavigate={handleNavigate} />
 
         <section style={styles.mainPanel}>
           {canShowUpdateBanner ? (
@@ -1410,6 +1434,15 @@ export default function App() {
           focusBarcodeInput();
         }}
         onSave={handleProductCompletionSaved}
+      />
+
+      <PinLockModal
+        isOpen={isProductsPinPromptOpen}
+        title="Products section PIN"
+        description="Enter the manager PIN to open the Products section."
+        expectedPin={PRODUCTS_SECTION_PIN}
+        onClose={() => setIsProductsPinPromptOpen(false)}
+        onSuccess={handleProductsPinSuccess}
       />
 
       <ShiftModal
